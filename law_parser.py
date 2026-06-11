@@ -197,10 +197,11 @@ def _extract_law_name(raw: str, pdf_stem: str) -> str:
             return s
 
     # 3. 파일명에서 법령명 추출 (괄호, 날짜, 법률번호 제거)
-    cleaned = re.sub(r"\(.*?\)", "", pdf_stem).strip()
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    # 첫 번째 괄호 이전까지만 사용
+    cleaned = pdf_stem.split("(")[0].strip()
+    # 중복 공백 제거
+    cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned if cleaned else pdf_stem
-
 
 # ============================================================
 # 조문 단위 파싱
@@ -414,12 +415,15 @@ def process_all_pdfs(
     for pdf_file in pdf_files:
         print(f"\n처리 중: {pdf_file.name}")
         try:
-            # 상위 폴더명을 법령명으로 사용
-            folder_law_name = pdf_file.parent.name
+            file_law_name = re.sub(
+                r"\s+",
+                " ",
+                pdf_file.stem.split("(")[0].strip()
+            )
 
             docs = parse_law_pdf(
                 str(pdf_file),
-                law_name=folder_law_name
+                law_name=file_law_name
             )
             output_file = (
                 output_path
