@@ -7,11 +7,18 @@ RAGEngine — LangGraph 기반 법률 분석 엔진
     result = engine.answer("질문 내용")
     print(result["answer"])
     
-    # 진행상황 스트리밍:
+    # 진행상황 스트리밍 (노드 단위):
     for node_name, label, detail in engine.stream_answer("질문 내용"):
         print(f"{label}: {detail}")
+    
+    # 토큰 스트리밍 (최종 답변 실시간 출력):
+    for event in engine.stream_answer("질문 내용"):
+        if event[0] == "token":
+            print(event[2], end="", flush=True)
 """
 from backend.graph import graph
+from backend.config import llm
+from backend.nodes import build_final_prompt
 
 # 각 노드의 한글 레이블 및 설명
 NODE_LABELS = {
@@ -22,6 +29,7 @@ NODE_LABELS = {
     "retrieve_precedent":   "🔍 관련 판례 검색",
     "analyze_precedent":    "📜 판례 분석",
     "generate_answer":      "💡 최종 답변 생성",
+    "stream_answer":        "💡 답변 생성 중",
 }
 
 
@@ -56,7 +64,8 @@ class RAGEngine:
         """
         그래프 실행 과정을 실시간으로 스트리밍합니다.
 
-        각 노드 완료 시마다 (node_name, label, detail) 튜플을 yield합니다.
+        Phase 1 — 각 노드 완료 시마다 (node_name, label, detail) 튜플을 yield
+        Phase 2 — 최종 답변을 토큰 단위로 yield (node_name="token", detail=토큰문자열)
         마지막 yield는 node_name="done"이며 detail에 최종 결과를 담습니다.
 
         Args:
@@ -66,7 +75,7 @@ class RAGEngine:
         Yields:
             (node_name: str, label: str, detail: str | dict)
         """
-        result = {}
+        result = {"question": question}  # graph.stream()은 초기 input을 포함하지 않음
         for event in self.graph.stream({"question": question}):
             for node_name, output in event.items():
                 result.update(output)
@@ -74,10 +83,20 @@ class RAGEngine:
                 detail = self._format_stream_detail(node_name, output)
                 yield node_name, label, detail
 
+        # Phase 2: 최종 답변 토큰 스트리밍
+        prompt = build_final_prompt(result)
+        full_answer = ""
+        for chunk in llm.stream(prompt):
+            raw = chunk.content if hasattr(chunk, "content") else str(chunk)
+            token = str(raw) if not isinstance(raw, str) else raw
+            if token:
+                full_answer += token
+                yield "token", "💡 답변 생성 중", token
+
         # 최종 결과
         sources = self._format_sources(result)
         yield "done", "✅ 분석 완료", {
-            "answer": result.get("final_answer", ""),
+            "answer": full_answer,
             "sources": sources,
         }
 
