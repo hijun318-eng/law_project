@@ -573,6 +573,12 @@ def render_qa():
     for msg in st.session_state.qa_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            if msg.get("progress"):
+                with st.expander("📋 분석 진행 과정", expanded=False):
+                    for node_name, label, detail in msg["progress"]:
+                        st.markdown(f"**{label}**")
+                        if isinstance(detail, str) and detail:
+                            st.caption(detail[:300])
             if "sources" in msg and msg["sources"]:
                 with st.expander(f"📚 근거 자료 ({len(msg['sources'])}개)", expanded=False):
                     for i, src in enumerate(msg["sources"], 1):
@@ -603,17 +609,18 @@ def render_qa():
 
 
 def _qa_answer(question: str):
-    """Q&A 질문 처리 (LangGraph 진행상황 표시)"""
+    """Q&A 질문 처리 (LangGraph 진행상황을 session_state에 저장하여 rerun 후에도 유지)"""
     if not question.strip():
         return
 
     # 사용자 메시지 추가
     st.session_state.qa_messages.append({"role": "user", "content": question})
 
+    progress_log = []  # rerun 후에도 보여줄 진행 로그
     engine = st.session_state.get("engine")
+
     if engine is not None:
         try:
-            # LangGraph 진행상황을 st.status()로 표시
             status = st.status("🧠 법률 분석 시작...", expanded=True)
             answer = ""
             sources = []
@@ -623,13 +630,13 @@ def _qa_answer(question: str):
                     status.update(label=label, state="complete")
                     answer = detail.get("answer", "")
                     sources = detail.get("sources", [])
+                    progress_log.append(("done", "✅ 분석 완료", f"답변 {len(answer)}자, 출처 {len(sources)}건"))
                 else:
                     status.update(label=label, state="running")
                     if detail:
-                        if isinstance(detail, str) and len(detail) > 80:
-                            status.write(f"> {detail[:80]}...")
-                        elif isinstance(detail, str):
-                            status.write(f"> {detail}")
+                        short = (detail[:80] + "...") if isinstance(detail, str) and len(detail) > 80 else detail
+                        status.write(f"> {short}")
+                    progress_log.append((node_name, label, detail if isinstance(detail, str) else ""))
             status.update(label="✅ 분석 완료", state="complete")
         except Exception as e:
             answer = f"⚠️ 오류가 발생했습니다: {str(e)}"
@@ -644,6 +651,7 @@ def _qa_answer(question: str):
         "role": "assistant",
         "content": answer,
         "sources": sources,
+        "progress": progress_log,  # rerun 후에도 expander로 표시됨
     })
 
 
