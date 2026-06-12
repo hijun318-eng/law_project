@@ -20,19 +20,19 @@ DATA_ROOT = Path("data/process")
 
 def build_law_db(force: bool = False) -> Chroma:
     """법령 JSON → Chroma DB 생성"""
-    law_root = DATA_ROOT / "법률"
+    law_root = DATA_ROOT / "law"
 
     if not law_root.exists():
         raise FileNotFoundError(
             f"폴더가 없습니다: {law_root.resolve()}\n"
-            "law_parser.py의 process_all_pdfs()를 먼저 실행해 주세요."
+            "preprocess/run_preprocess.py를 먼저 실행해 주세요."
         )
 
     json_files = sorted(law_root.rglob("*.json"))
     if not json_files:
         raise FileNotFoundError(
             f"{law_root} 안에 JSON 파일이 없습니다.\n"
-            "law_parser.py의 process_all_pdfs()를 먼저 실행해 주세요."
+            "preprocess/run_preprocess.py를 먼저 실행해 주세요."
         )
 
     print(f"JSON 파일 {len(json_files)}개 발견")
@@ -87,11 +87,12 @@ def build_law_db(force: bool = False) -> Chroma:
 
 def build_precedent_db(force: bool = False) -> Chroma:
     """판례 JSON → Chroma DB 생성"""
-    precedent_root = DATA_ROOT / "판례"
+    precedent_root = DATA_ROOT / "case"
 
     if not precedent_root.exists():
         raise FileNotFoundError(
-            f"폴더가 없습니다: {precedent_root.resolve()}"
+            f"폴더가 없습니다: {precedent_root.resolve()}\n"
+            "preprocess/run_preprocess.py를 먼저 실행해 주세요."
         )
 
     all_docs = []
@@ -131,28 +132,28 @@ def build_precedent_db(force: bool = False) -> Chroma:
 
 def build_qna_db(force: bool = False) -> Chroma:
     """질의회시 JSON → Chroma DB 생성"""
-    qna_root = DATA_ROOT / "질의회시집"
+    qna_json = DATA_ROOT / "qna" / "qna.json"
 
-    if not qna_root.exists():
+    if not qna_json.exists():
         raise FileNotFoundError(
-            f"폴더가 없습니다: {qna_root.resolve()}"
+            f"파일이 없습니다: {qna_json.resolve()}\n"
+            "preprocess/run_preprocess.py를 먼저 실행해 주세요."
         )
 
     qna_docs = []
-    for json_file in sorted(qna_root.rglob("*.json")):
-        print(f"로딩 중: {json_file.name}")
-        with open(json_file, "r", encoding="utf-8") as f:
-            items = json.load(f)
+    print(f"로딩 중: {qna_json.name}")
+    with open(qna_json, "r", encoding="utf-8") as f:
+        items = json.load(f)
 
-        if isinstance(items, dict):
-            items = [items]
+    if isinstance(items, dict):
+        items = [items]
 
-        for item in items:
-            doc = Document(
-                page_content=item["page_content"],
-                metadata=item.get("metadata", {}),
-            )
-            qna_docs.append(doc)
+    for item in items:
+        doc = Document(
+            page_content=item["page_content"],
+            metadata=item.get("metadata", {}),
+        )
+        qna_docs.append(doc)
 
     print(f"\n총 {len(qna_docs)}개 질의회시 Document 로드 완료")
     if qna_docs:
