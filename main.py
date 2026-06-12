@@ -573,17 +573,23 @@ def render_qa():
     for msg in st.session_state.qa_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            if msg.get("progress"):
+                with st.expander("📋 분석 진행 과정", expanded=True):
+                    for node_name, label, detail in msg["progress"]:
+                        st.markdown(f"**{label}**")
+                        if isinstance(detail, str) and detail:
+                            st.caption(detail[:300])
             if "sources" in msg and msg["sources"]:
-                with st.expander(f"📚 근거 조문 ({len(msg['sources'])}개)", expanded=False):
+                with st.expander(f"📚 근거 자료 ({len(msg['sources'])}개)", expanded=False):
                     for i, src in enumerate(msg["sources"], 1):
-                        st.markdown(f"**{i}. {src.get('law_name', '')} {src.get('article_id', '')}**")
-                        if src.get("chapter"):
-                            st.caption(f"📂 {src['chapter']}")
-                        if src.get("preview"):
-                            st.text(src["preview"][:200])
+                        _render_source(src, i)
                         st.divider()
 
-    # 초기 FAQ
+    # 입력창 (FAQ보다 먼저 처리해야 _qa_answer 후 FAQ 체크가 정확함)
+    if prompt := st.chat_input("법률 질문을 입력해주세요..."):
+        _qa_answer(prompt)
+
+    # 초기 FAQ (빈 채팅일 때만 표시)
     if not st.session_state.qa_messages:
         st.markdown("### 💡 자주 묻는 질문")
         faqs = [
@@ -598,41 +604,99 @@ def render_qa():
         for i, q in enumerate(faqs):
             if cols[i % 2].button(q, use_container_width=True, key=f"faq_{i}"):
                 _qa_answer(q)
-                st.rerun()
-
-    # 입력창
-    if prompt := st.chat_input("법률 질문을 입력해주세요..."):
-        _qa_answer(prompt)
-        st.rerun()
 
 
 def _qa_answer(question: str):
-    """Q&A 질문 처리"""
+    """Q&A 질문 처리 (st.chat_message + st.empty 실시간 텍스트 스트리밍)"""
     if not question.strip():
         return
 
-    # 사용자 메시지 추가
+    # 1. user 메시지를 session_state에 먼저 저장하고 직접 렌더링
     st.session_state.qa_messages.append({"role": "user", "content": question})
+    with st.chat_message("user"):
+        st.markdown(question)
 
+    progress_log = []
+    answer = ""
+    sources = ""
     engine = st.session_state.get("engine")
+
     if engine is not None:
         try:
-            result = engine.answer(question, top_k=5)
-            answer = result["answer"]
-            sources = result["sources"]
+            # 2. assistant 채팅 버블 영역을 status 보다 먼저 생성
+            with st.chat_message("assistant"):
+                answer_placeholder = st.empty()
+
+            # 3. status 박스로 진행상황 표시
+            status = st.status("🔍 법률 분석 진행 중...", expanded=True)
+
+            full_answer = ""
+            for node_name, label, detail in engine.stream_answer(question):
+                if node_name == "token":
+                    # 채팅 버블 안에서 실시간 텍스트 갱신
+                    full_answer += detail
+                    answer_placeholder.markdown(full_answer + "▌")
+                    status.update(
+                        label=f"💡 답변 생성 중... ({len(full_answer)}자)",
+                        state="running",
+                    )
+
+                elif node_name == "done":
+                    answer_placeholder.markdown(full_answer)
+                    answer = detail.get("answer", "")
+                    sources = detail.get("sources", [])
+                    status.update(label="✅ 분석 완료", state="complete")
+                    progress_log.append(
+                        ("done", "✅ 분석 완료", f"답변 {len(answer)}자, 출처 {len(sources)}건")
+                    )
+
+                else:
+                    status.update(label=label, state="running")
+                    if detail:
+                        short = (detail[:80] + "...") if isinstance(detail, str) and len(detail) > 80 else detail
+                        status.write(f"> {short}")
+                    progress_log.append((node_name, label, detail if isinstance(detail, str) else ""))
+
+            if full_answer:
+                progress_log.append(
+                    ("stream_token", "💡 답변 생성 (스트리밍)", f"총 {len(full_answer)}자")
+                )
+
         except Exception as e:
             answer = f"⚠️ 오류가 발생했습니다: {str(e)}"
             sources = []
+            st.error(f"RAG 엔진 오류: {e}")
     else:
-        # RAG 미연결 시 기본 응답
-        answer = _fallback_answer(question)
-        sources = []
+        with st.chat_message("assistant"):
+            st.markdown(_fallback_answer(question))
 
     st.session_state.qa_messages.append({
         "role": "assistant",
         "content": answer,
         "sources": sources,
+        "progress": progress_log,
     })
+
+
+def _render_source(src: dict, idx: int):
+    """소스 문서 한 건을 Streamlit 마크다운으로 렌더링"""
+    stype = src.get("type", "")
+    if stype == "law":
+        st.markdown(f"**{idx}. ⚖️ {src.get('law_name', '')} {src.get('article_no', '')}**")
+        if src.get("article_title"):
+            st.caption(f"📄 {src['article_title']}")
+        if src.get("chapter_title"):
+            st.caption(f"📂 {src['chapter_title']}")
+    elif stype == "qna":
+        st.markdown(f"**{idx}. 📖 {src.get('title', '')}**")
+        if src.get("ref_no"):
+            st.caption(f"📎 {src['ref_no']} ({src.get('ref_date', '')})")
+    elif stype == "precedent":
+        st.markdown(f"**{idx}. 📜 {src.get('case_no', '')}**")
+        if src.get("category"):
+            st.caption(f"📂 {src['category']}")
+    else:
+        st.markdown(f"**{idx}. {src.get('title', src.get('law_name', src.get('case_no', '문서')))}**")
 
 
 def _fallback_answer(question: str) -> str:

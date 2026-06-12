@@ -121,7 +121,8 @@ def analyze_precedent_node(state):
     return {"precedent_analysis": result}
 
 
-def generate_answer_node(state):
+def build_final_prompt(state) -> str:
+    """최종 답변 생성 프롬프트를 state로부터 구성 (stream_answer에서도 재사용)"""
     qna_context_parts = []
     for doc in state.get("qna_docs", []):
         m = doc.metadata
@@ -129,12 +130,16 @@ def generate_answer_node(state):
         full_content = m.get("full_content", doc.page_content)
         qna_context_parts.append(f"{label}\n{full_content[:400]}")
     qna_context = "\n\n".join(qna_context_parts)
-    prompt = PROMPT_GENERATE_ANSWER.format(
+    return PROMPT_GENERATE_ANSWER.format(
         question=state["question"],
         issue_summary=state.get("issue_summary", ""),
-        law_analysis=state["law_analysis"],
-        precedent_analysis=state["precedent_analysis"],
+        law_analysis=state.get("law_analysis", ""),
+        precedent_analysis=state.get("precedent_analysis", ""),
         qna_context=qna_context,
     )
+
+
+def generate_answer_node(state):
+    prompt = build_final_prompt(state)
     answer = llm.invoke(prompt).content
     return {"final_answer": answer}
