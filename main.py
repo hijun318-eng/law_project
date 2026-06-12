@@ -574,13 +574,9 @@ def render_qa():
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if "sources" in msg and msg["sources"]:
-                with st.expander(f"📚 근거 조문 ({len(msg['sources'])}개)", expanded=False):
+                with st.expander(f"📚 근거 자료 ({len(msg['sources'])}개)", expanded=False):
                     for i, src in enumerate(msg["sources"], 1):
-                        st.markdown(f"**{i}. {src.get('law_name', '')} {src.get('article_id', '')}**")
-                        if src.get("chapter"):
-                            st.caption(f"📂 {src['chapter']}")
-                        if src.get("preview"):
-                            st.text(src["preview"][:200])
+                        _render_source(src, i)
                         st.divider()
 
     # 초기 FAQ
@@ -607,7 +603,7 @@ def render_qa():
 
 
 def _qa_answer(question: str):
-    """Q&A 질문 처리"""
+    """Q&A 질문 처리 (LangGraph 진행상황 표시)"""
     if not question.strip():
         return
 
@@ -617,12 +613,28 @@ def _qa_answer(question: str):
     engine = st.session_state.get("engine")
     if engine is not None:
         try:
-            result = engine.answer(question, top_k=5)
-            answer = result["answer"]
-            sources = result["sources"]
+            # LangGraph 진행상황을 st.status()로 표시
+            status = st.status("🧠 법률 분석 시작...", expanded=True)
+            answer = ""
+            sources = []
+
+            for node_name, label, detail in engine.stream_answer(question):
+                if node_name == "done":
+                    status.update(label=label, state="complete")
+                    answer = detail.get("answer", "")
+                    sources = detail.get("sources", [])
+                else:
+                    status.update(label=label, state="running")
+                    if detail:
+                        if isinstance(detail, str) and len(detail) > 80:
+                            status.write(f"> {detail[:80]}...")
+                        elif isinstance(detail, str):
+                            status.write(f"> {detail}")
+            status.update(label="✅ 분석 완료", state="complete")
         except Exception as e:
             answer = f"⚠️ 오류가 발생했습니다: {str(e)}"
             sources = []
+            st.error(f"RAG 엔진 오류: {e}")
     else:
         # RAG 미연결 시 기본 응답
         answer = _fallback_answer(question)
@@ -633,6 +645,27 @@ def _qa_answer(question: str):
         "content": answer,
         "sources": sources,
     })
+
+
+def _render_source(src: dict, idx: int):
+    """소스 문서 한 건을 Streamlit 마크다운으로 렌더링"""
+    stype = src.get("type", "")
+    if stype == "law":
+        st.markdown(f"**{idx}. ⚖️ {src.get('law_name', '')} {src.get('article_no', '')}**")
+        if src.get("article_title"):
+            st.caption(f"📄 {src['article_title']}")
+        if src.get("chapter_title"):
+            st.caption(f"📂 {src['chapter_title']}")
+    elif stype == "qna":
+        st.markdown(f"**{idx}. 📖 {src.get('title', '')}**")
+        if src.get("ref_no"):
+            st.caption(f"📎 {src['ref_no']} ({src.get('ref_date', '')})")
+    elif stype == "precedent":
+        st.markdown(f"**{idx}. 📜 {src.get('case_no', '')}**")
+        if src.get("category"):
+            st.caption(f"📂 {src['category']}")
+    else:
+        st.markdown(f"**{idx}. {src.get('title', src.get('law_name', src.get('case_no', '문서')))}**")
 
 
 def _fallback_answer(question: str) -> str:

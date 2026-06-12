@@ -6,8 +6,23 @@ RAGEngine — LangGraph 기반 법률 분석 엔진
     engine = RAGEngine()
     result = engine.answer("질문 내용")
     print(result["answer"])
+    
+    # 진행상황 스트리밍:
+    for node_name, label, detail in engine.stream_answer("질문 내용"):
+        print(f"{label}: {detail}")
 """
 from backend.graph import graph
+
+# 각 노드의 한글 레이블 및 설명
+NODE_LABELS = {
+    "retrieve_qna":         "📖 유사 질의회시 검색",
+    "extract_issue":        "📌 법률 쟁점 추출",
+    "retrieve_law":         "⚖️ 관련 법령 검색",
+    "analyze_law":          "📝 법률 조문 분석",
+    "retrieve_precedent":   "🔍 관련 판례 검색",
+    "analyze_precedent":    "📜 판례 분석",
+    "generate_answer":      "💡 최종 답변 생성",
+}
 
 
 class RAGEngine:
@@ -36,6 +51,60 @@ class RAGEngine:
             "answer": result.get("final_answer", ""),
             "sources": sources,
         }
+
+    def stream_answer(self, question: str, top_k: int = 5):
+        """
+        그래프 실행 과정을 실시간으로 스트리밍합니다.
+
+        각 노드 완료 시마다 (node_name, label, detail) 튜플을 yield합니다.
+        마지막 yield는 node_name="done"이며 detail에 최종 결과를 담습니다.
+
+        Args:
+            question: 사용자 질문
+            top_k:   (향후 확장)
+
+        Yields:
+            (node_name: str, label: str, detail: str | dict)
+        """
+        result = {}
+        for event in self.graph.stream({"question": question}):
+            for node_name, output in event.items():
+                result.update(output)
+                label = NODE_LABELS.get(node_name, node_name)
+                detail = self._format_stream_detail(node_name, output)
+                yield node_name, label, detail
+
+        # 최종 결과
+        sources = self._format_sources(result)
+        yield "done", "✅ 분석 완료", {
+            "answer": result.get("final_answer", ""),
+            "sources": sources,
+        }
+
+    def _format_stream_detail(self, node_name: str, output: dict):
+        """스트리밍 중 각 노드 출력을 읽을 수 있는 형태로 변환"""
+        if node_name == "retrieve_qna":
+            docs = output.get("qna_docs", [])
+            return f"질의회시 {len(docs)}건 검색됨"
+        elif node_name == "extract_issue":
+            summary = output.get("issue_summary", "") or ""
+            return summary[:200] if len(summary) > 200 else summary
+        elif node_name == "retrieve_law":
+            docs = output.get("law_docs", [])
+            return f"법령 {len(docs)}개 검색됨"
+        elif node_name == "analyze_law":
+            analysis = output.get("law_analysis", "") or ""
+            return analysis[:200] if len(analysis) > 200 else analysis
+        elif node_name == "retrieve_precedent":
+            docs = output.get("precedent_docs", [])
+            return f"판례 {len(docs)}건 검색됨"
+        elif node_name == "analyze_precedent":
+            analysis = output.get("precedent_analysis", "") or ""
+            return analysis[:200] if len(analysis) > 200 else analysis
+        elif node_name == "generate_answer":
+            answer = output.get("final_answer", "") or ""
+            return f"답변 {len(answer)}자 생성 완료"
+        return ""
 
     def _format_sources(self, state: dict) -> list:
         """그래프 실행 결과 state에서 소스 문서 리스트를 추출"""
