@@ -22,12 +22,17 @@ for p in [PROJECT_ROOT, LAW_TEST_DIR]:
         sys.path.insert(0, p)
 
 # ── RAG 엔진 연결 (선택적) ────────────────────────────────
+RAG_AVAILABLE = False
+llm = None
+LLM_PROVIDER = "openai"
 try:
     from backend.rag_engine import RAGEngine
     from src.history_db import HistoryDB
+    from backend.config import llm as _llm, LLM_PROVIDER as _llm_provider
+    llm = _llm
+    LLM_PROVIDER = _llm_provider
     RAG_AVAILABLE = True
 except ImportError as e:
-    RAG_AVAILABLE = False
     import traceback
     print(f"[WARN] RAG 엔진 로드 실패: {e}")
 
@@ -1477,6 +1482,10 @@ def render_sidebar():
                         st.markdown("🤖 LLM: ❌ 상태 확인 불가")
                 else:
                     st.markdown("🤖 LLM: ❌ 엔진 미초기화 (LM Studio 필요)")
+                _model_name = getattr(llm, 'model_name', '알 수 없음')  # type: ignore
+                _provider = 'OpenAI' if LLM_PROVIDER == 'openai' else 'Local'  # type: ignore
+                st.markdown(f"🧠 모델: {_model_name}")
+                st.markdown(f"🔌 제공자: {_provider}")
             else:
                 st.markdown("🤖 LLM: ⚠️ 모듈 미설치")
             st.markdown(f"💬 설명 모드: {'쉬운 말' if current_mode == 'easy' else '전문가'}")

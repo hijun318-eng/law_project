@@ -12,7 +12,9 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 
-from backend.config import embedding
+from backend.config import embedding, LLM_PROVIDER
+
+DB_SUFFIX = "_local" if LLM_PROVIDER == "local" else ""
 
 # 데이터 루트
 DATA_ROOT = Path("data/process")
@@ -69,7 +71,7 @@ def build_law_db(force: bool = False) -> Chroma:
     for k, v in all_law_docs[0].metadata.items():
         print(f"{k}: {v}")
 
-    db_path = "vector_db/laws"
+    db_path = f"vector_db/laws{DB_SUFFIX}"
     if force:
         import shutil
         shutil.rmtree(db_path, ignore_errors=True)
@@ -115,7 +117,7 @@ def build_precedent_db(force: bool = False) -> Chroma:
     if all_docs:
         print("[메타데이터 예시]", all_docs[0].metadata)
 
-    db_path = "vector_db/precedents"
+    db_path = f"vector_db/precedents{DB_SUFFIX}"
     if force:
         import shutil
         shutil.rmtree(db_path, ignore_errors=True)
@@ -160,7 +162,7 @@ def build_qna_db(force: bool = False) -> Chroma:
         print("[임베딩 대상 예시]", qna_docs[0].page_content)
         print("[메타데이터 키]", list(qna_docs[0].metadata.keys()))
 
-    db_path = "vector_db/qna"
+    db_path = f"vector_db/qna{DB_SUFFIX}"
     if force:
         import shutil
         shutil.rmtree(db_path, ignore_errors=True)
