@@ -23,7 +23,7 @@ for p in [PROJECT_ROOT, LAW_TEST_DIR]:
 
 # ── RAG 엔진 연결 (선택적) ────────────────────────────────
 try:
-    from src.rag_engine import RAGEngine
+    from backend.rag_engine import RAGEngine
     from src.history_db import HistoryDB
     RAG_AVAILABLE = True
 except ImportError as e:
