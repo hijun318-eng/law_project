@@ -1,145 +1,137 @@
 """
 LangGraph 노드 함수 + GraphState 정의
-7개 노드 함수와 GraphState를 포함합니다.
 """
-
+import json
+from pathlib import Path
 from typing import TypedDict
 
-from backend.config import llm
-from backend.database import qna_db, law_db, precedent_db
-from backend.prompts import (
-    PROMPT_EXTRACT_ISSUE,
-    PROMPT_ANALYZE_LAW,
-    PROMPT_ANALYZE_PRECEDENT,
-    PROMPT_GENERATE_ANSWER,
-)
+from backend.database import law_db, precedent_db
+from backend.services.answer_service import answer_service
+from backend.services.procedure_service import procedure_service
 
 
 class GraphState(TypedDict):
     question: str
-    qna_docs: list
-    issue_summary: str
+    precedent_docs_direct: list
     law_docs: list
-    law_analysis: str
+    law_analysis: list
+    precedent_docs_law: list
     precedent_docs: list
     precedent_analysis: str
     final_answer: str
+    used_precedents: list[str]
+    procedure_guide: str
 
 
-def retrieve_qna_node(state):
-    question = state["question"]
-    docs = qna_db.similarity_search(question, k=10)
-    print("\n===== QNA(질의회시) RETRIEVAL =====")
-    for i, doc in enumerate(docs, 1):
-        print(f"\n[QNA {i}]")
-        print("metadata title:", doc.metadata.get("title", ""))
-        print("질의(임베딩 대상):", doc.page_content)
-    return {"qna_docs": docs}
+# ==========================================================
+# NODE 1: 판례 직접 검색
+# ==========================================================
+def retrieve_precedent_node(state: GraphState) -> dict:
+    docs = precedent_db.similarity_search(state["question"], k=5)
+    return {"precedent_docs_direct": docs}
 
 
-def extract_issue_node(state):
-    question = state["question"]
-    qna_context_parts = []
-    for doc in state["qna_docs"]:
-        m = doc.metadata
-        label = f"[{m.get('chapter_title','')} / {m.get('title','')} / {m.get('ref_no','')}, {m.get('ref_date','')}]"
-        full_content = m.get("full_content", doc.page_content)
-        qna_context_parts.append(f"{label}\n{full_content[:600]}")
-    qna_context = "\n\n".join(qna_context_parts)
-    prompt = PROMPT_EXTRACT_ISSUE.format(question=question, qna_context=qna_context)
-    issue_summary = llm.invoke(prompt).content.strip()
-    print("\n===== EXTRACTED ISSUE =====")
-    print(issue_summary)
-    return {"issue_summary": issue_summary}
+# ==========================================================
+# NODE 2: 법령 검색
+# ==========================================================
+def retrieve_law_node(state: GraphState) -> dict:
+    docs = law_db.similarity_search(state["question"], k=7)
+
+    law_analysis = [
+        {
+            "law_name": d.metadata.get("law_name", ""),
+            "article_no": d.metadata.get("article_no", ""),
+            "article_title": d.metadata.get("article_title", ""),
+            "page_content": d.page_content[:500],
+        }
+        for d in docs[:5]
+        if d.metadata.get("article_no")
+    ]
+
+    return {
+        "law_docs": docs,
+        "law_analysis": law_analysis,
+    }
 
 
-def retrieve_law_node(state):
-    question = state["question"]
-    issue_summary = state.get("issue_summary", "")
-    search_query = f"{question}\n\n{issue_summary}" if issue_summary else question
-    docs = law_db.similarity_search(search_query, k=5)
-    print("\n===== LAW RETRIEVAL =====")
-    for i, doc in enumerate(docs, 1):
-        print(f"\n[LAW {i}]")
-        print("metadata:", doc.metadata)
-        print(doc.page_content[:500])
-    return {"law_docs": docs}
+# ==========================================================
+# NODE 3: 법령 기반 판례 검색
+# ==========================================================
+def retrieve_precedent_by_law_node(state: GraphState) -> dict:
+    article_refs = [
+        f"{d['law_name']} {d['article_no']}"
+        for d in state["law_analysis"]
+        if d.get("law_name") and d.get("article_no")
+    ]
+
+    precedent_docs_law = []
+    found = set()
+
+    if article_refs:
+        search_query = " ".join(article_refs[:3])
+        docs = precedent_db.similarity_search(search_query, k=5)
+
+        for doc in docs:
+            cn = Path(doc.metadata.get("source_file", "")).stem
+            if cn not in found:
+                found.add(cn)
+                doc.metadata["source"] = "law_based"
+                precedent_docs_law.append(doc)
+
+    return {"precedent_docs_law": precedent_docs_law}
 
 
-def analyze_law_node(state):
-    question = state["question"]
-    law_context_parts = []
-    for doc in state["law_docs"]:
-        m = doc.metadata
-        parts = [p for p in [m.get("law_name",""), m.get("chapter",""), f"{m.get('article_no','')} ({m.get('article_title','')})" if m.get("article_title") else m.get("article_no","")] if p]
-        label = " / ".join(parts)
-        if m.get("page"):
-            label += f" / {m['page']}p"
-        if m.get("source_pdf"):
-            label += f" [{m['source_pdf']}]"
-        law_context_parts.append(f"[출처: {label}]\n{doc.page_content}")
-    law_context = "\n\n".join(law_context_parts)
-    prompt = PROMPT_ANALYZE_LAW.format(question=question, law_context=law_context)
-    result = llm.invoke(prompt).content
-    return {"law_analysis": result}
+# ==========================================================
+# NODE 4: merge
+# ==========================================================
+def merge_node(state: GraphState) -> dict:
+    merged = []
+    seen = set()
+
+    for doc in state.get("precedent_docs_law", [])[:3]:
+        cn = Path(doc.metadata.get("source_file", "")).stem
+        if cn not in seen:
+            seen.add(cn)
+            doc.metadata["source"] = "law_based"
+            merged.append(doc)
+
+    for doc in state.get("precedent_docs_direct", []):
+        cn = Path(doc.metadata.get("source_file", "")).stem
+        if cn not in seen:
+            seen.add(cn)
+            doc.metadata["source"] = "sac_direct"
+            merged.append(doc)
+
+    parts = []
+    for doc in merged[:5]:
+        cn = Path(doc.metadata.get("source_file", "")).stem
+        brief = doc.metadata.get("llm_brief", doc.page_content)
+        parts.append(f"[판례:{cn}]\n{brief}")
+
+    return {
+        "precedent_docs": merged[:5],
+        "precedent_analysis": "\n\n".join(parts),
+    }
 
 
-def retrieve_precedent_node(state):
-    keyword_prompt = f"""
-다음 사용자 사례와 법률 분석에서
-판례 검색에 사용할 핵심 법률 쟁점 키워드를
-10단어 이내로 추출하세요.
-
-사용자 사례: {state['question']}
-추출된 쟁점: {state.get('issue_summary', '')}
-법률 분석 요약: {state['law_analysis'][:300]}
-
-출력: 키워드만, 문장 금지
-"""
-    search_query = llm.invoke(keyword_prompt).content.strip()
-    print("\n===== PRECEDENT SEARCH QUERY =====")
-    print(search_query)
-    docs = precedent_db.similarity_search(search_query, k=5)
-    print("\n===== PRECEDENT RETRIEVAL =====")
-    for i, doc in enumerate(docs, 1):
-        print(f"\n[PRECEDENT {i}]")
-        print("metadata:", doc.metadata)
-        print(doc.page_content[:500])
-    return {"precedent_docs": docs}
-
-
-def analyze_precedent_node(state):
-    precedent_context_parts = []
-    for doc in state["precedent_docs"]:
-        m = doc.metadata
-        source_file = m.get("source_file", "알 수 없는 판례")
-        case_no = source_file.replace(".md", "").replace(".json", "")
-        precedent_context_parts.append(f"[판례: {case_no}]\n{doc.page_content}")
-    precedent_context = "\n\n".join(precedent_context_parts)
-    prompt = PROMPT_ANALYZE_PRECEDENT.format(question=state["question"], precedent_context=precedent_context)
-    result = llm.invoke(prompt).content
-    return {"precedent_analysis": result}
-
-
-def build_final_prompt(state) -> str:
-    """최종 답변 생성 프롬프트를 state로부터 구성 (stream_answer에서도 재사용)"""
-    qna_context_parts = []
-    for doc in state.get("qna_docs", []):
-        m = doc.metadata
-        label = f"[{m.get('title','')} / {m.get('ref_no','')}, {m.get('ref_date','')}]"
-        full_content = m.get("full_content", doc.page_content)
-        qna_context_parts.append(f"{label}\n{full_content[:400]}")
-    qna_context = "\n\n".join(qna_context_parts)
-    return PROMPT_GENERATE_ANSWER.format(
+# ==========================================================
+# NODE 5: LLM 답변
+# ==========================================================
+def generate_answer_node(state: GraphState) -> dict:
+    return answer_service.generate(
+        law_analysis=state["law_analysis"],
+        precedent_analysis=state["precedent_analysis"],
         question=state["question"],
-        issue_summary=state.get("issue_summary", ""),
-        law_analysis=state.get("law_analysis", ""),
-        precedent_analysis=state.get("precedent_analysis", ""),
-        qna_context=qna_context,
     )
 
 
-def generate_answer_node(state):
-    prompt = build_final_prompt(state)
-    answer = llm.invoke(prompt).content
-    return {"final_answer": answer}
+# ==========================================================
+# NODE 6: 절차 안내 
+# ==========================================================
+def procedure_guide_node(state: GraphState) -> dict:
+
+    return {
+        "procedure_guide": procedure_service.generate(
+            used_precedents=state.get("used_precedents", [])
+        )
+    }
