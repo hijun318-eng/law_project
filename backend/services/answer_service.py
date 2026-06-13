@@ -1,7 +1,3 @@
-"""
-최종 답변 생성 서비스
-법령/판례 컨텍스트를 조합하여 LLM 답변을 생성합니다.
-"""
 import re
 
 from backend.config import llm
@@ -33,6 +29,7 @@ class AnswerService:
             r"\b\d{4}[가-힣]{1,3}\d+\b",
             answer
         )
+        used_precedents = list(dict.fromkeys(used_precedents)) # 중복 제거
 
         return {
             "final_answer": answer,

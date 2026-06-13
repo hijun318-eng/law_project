@@ -17,19 +17,27 @@ class ProcedureService:
             return "관련 판례를 찾을 수 없습니다."
 
         precedent_no = used_precedents[0]
-
         root = Path("./data/process/case")
-
         category = None
 
         for path in root.rglob(f"{precedent_no}.json"):
-            with open(path, "r", encoding="utf-8") as f:
-                precedent = json.load(f)
-            category = precedent[0]["metadata"]["category"]
-            break
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    precedent = json.load(f)
+
+                # 리스트 또는 dict 모두 처리
+                item = precedent[0] if isinstance(precedent, list) else precedent
+                category = item.get("metadata", {}).get("category")
+                break
+
+            except Exception as e:
+                print(f"[ProcedureService] 파일 읽기 실패 {path}: {e}")
+                continue
+            
+        print(f"[DEBUG] precedent_no={precedent_no}, category={category}")
 
         if not category:
-            return "판례 카테고리를 찾을 수 없습니다."
+            return f"판례({precedent_no})의 카테고리를 찾을 수 없습니다."
 
         info = PROCEDURE_MAP.get(category)
 
@@ -39,8 +47,8 @@ class ProcedureService:
         prompt = self.prompt_template.format(
             category=category,
             agency=info["agency"],
-            worker_actions="\n".join(info["worker_actions"]),
-            evidence="\n".join(info["evidence"]),
+            worker_actions="\n".join(f"- {a}" for a in info["worker_actions"]),
+            evidence="\n".join(f"- {e}" for e in info["evidence"]),
             deadline=info["deadline"] or "없음",
         )
 

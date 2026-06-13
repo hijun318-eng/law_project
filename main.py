@@ -631,10 +631,16 @@ def _qa_answer(question: str):
                 for node_name, label, detail in engine.stream_answer(question):
                     if node_name == "done":
                         answer  = detail.get("answer", "")
+                        procedure = detail.get("procedure", "")
                         sources = detail.get("sources", [])
     
                         # ← 핵심: done에서 받은 답변을 placeholder에 표시
                         answer_placeholder.markdown(answer)
+                        
+                        if procedure and procedure not in ("skip", "관련 판례를 찾을 수 없습니다."):
+                            st.divider()
+                            st.subheader("📋 대응 절차 안내")
+                            st.markdown(procedure)
                         status.update(label="✅ 분석 완료", state="complete")
                         progress_log.append(
                             ("done", "✅ 분석 완료", f"답변 {len(answer)}자, 출처 {len(sources)}건")
