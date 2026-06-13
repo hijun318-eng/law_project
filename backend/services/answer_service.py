@@ -2,7 +2,7 @@ import re
 
 from backend.config import llm
 from backend.utils.prompt_loader import load_prompt
-
+from string import Template
 
 class AnswerService:
 
@@ -17,23 +17,23 @@ class AnswerService:
             (precedent_analysis or "").split("\n\n")[:3]
         )
 
-        prompt = self.prompt_template
-        prompt = prompt.replace("{law_context}", law_context)
-        prompt = prompt.replace("{precedent_context}", precedent_context)
-        prompt = prompt.replace("{question}", question)
-        prompt = prompt.replace("{law_source}", law_source)
+        prompt = Template(self.prompt_template).safe_substitute(
+            law_context=law_context,
+            precedent_context=precedent_context,
+            question=question,
+            law_source=law_source,
+        )
 
         answer = llm.invoke(prompt).content
 
-        used_precedents = re.findall(
-            r"\b\d{4}[가-힣]{1,3}\d+\b",
-            answer
-        )
-        used_precedents = list(dict.fromkeys(used_precedents)) # 중복 제거
+        # used_precedents = re.findall(
+        #     r"\b\d{4}[가-힣]{1,3}\d+\b",
+        #     answer
+        # )
+        # used_precedents = list(dict.fromkeys(used_precedents))
 
         return {
-            "final_answer": answer,
-            "used_precedents": used_precedents,
+            "final_answer": answer
         }
 
     @staticmethod
