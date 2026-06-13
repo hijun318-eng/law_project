@@ -17,19 +17,15 @@ RAGEngine — LangGraph 기반 법률 분석 엔진
             print(event[2], end="", flush=True)
 """
 from backend.graph import graph
-from backend.config import llm
-from backend.nodes import build_final_prompt
 
 # 각 노드의 한글 레이블 및 설명
 NODE_LABELS = {
-    "retrieve_qna":         "📖 유사 질의회시 검색",
-    "extract_issue":        "📌 법률 쟁점 추출",
-    "retrieve_law":         "⚖️ 관련 법령 검색",
-    "analyze_law":          "📝 법률 조문 분석",
-    "retrieve_precedent":   "🔍 관련 판례 검색",
-    "analyze_precedent":    "📜 판례 분석",
-    "generate_answer":      "💡 최종 답변 생성",
-    "stream_answer":        "💡 답변 생성 중",
+    "retrieve_precedent":        "🔍 판례 직접 검색",
+    "retrieve_law":              "⚖️ 관련 법령 검색",
+    "retrieve_precedent_by_law": "📎 법령 기반 판례 검색",
+    "merge":                     "🔗 판례 합산",
+    "generate_answer":           "💡 최종 답변 생성",
+    "procedure_guide":           "📋 절차 안내 생성",
 }
 
 
@@ -42,10 +38,6 @@ class RAGEngine:
     def answer(self, question: str, top_k: int = 5) -> dict:
         """
         질문에 대한 법률 분석을 수행합니다.
-
-        Args:
-            question: 사용자 질문
-            top_k:   (향후 확장) 검색 문서 수 제어
 
         Returns:
             {"answer": str, "sources": list[dict]}
@@ -83,61 +75,48 @@ class RAGEngine:
                 detail = self._format_stream_detail(node_name, output)
                 yield node_name, label, detail
 
-        # Phase 2: 최종 답변 토큰 스트리밍
-        prompt = build_final_prompt(result)
-        full_answer = ""
-        for chunk in llm.stream(prompt):
-            raw = chunk.content if hasattr(chunk, "content") else str(chunk)
-            token = str(raw) if not isinstance(raw, str) else raw
-            if token:
-                full_answer += token
-                yield "token", "💡 답변 생성 중", token
-
         # 최종 결과
         sources = self._format_sources(result)
         yield "done", "✅ 분석 완료", {
-            "answer": full_answer,
+            "answer": result.get("final_answer", ""),
+            "procedure": result.get("procedure_guide", ""),
             "sources": sources,
         }
 
     def _format_stream_detail(self, node_name: str, output: dict):
         """스트리밍 중 각 노드 출력을 읽을 수 있는 형태로 변환"""
-        if node_name == "retrieve_qna":
-            docs = output.get("qna_docs", [])
-            return f"질의회시 {len(docs)}건 검색됨"
-        elif node_name == "extract_issue":
-            summary = output.get("issue_summary", "") or ""
-            return summary[:200] if len(summary) > 200 else summary
+        """각 노드 출력을 사람이 읽을 수 있는 형태로 변환"""
+        if node_name == "retrieve_precedent":
+            docs = output.get("precedent_docs_direct", [])
+            return f"판례 {len(docs)}건 검색됨"
+ 
         elif node_name == "retrieve_law":
             docs = output.get("law_docs", [])
-            return f"법령 {len(docs)}개 검색됨"
-        elif node_name == "analyze_law":
-            analysis = output.get("law_analysis", "") or ""
-            return analysis[:200] if len(analysis) > 200 else analysis
-        elif node_name == "retrieve_precedent":
+            analysis = output.get("law_analysis", [])
+            return f"법령 {len(docs)}개 검색됨 / 조항 {len(analysis)}개 추출"
+ 
+        elif node_name == "retrieve_precedent_by_law":
+            docs = output.get("precedent_docs_law", [])
+            return f"법령 기반 판례 {len(docs)}건 검색됨"
+ 
+        elif node_name == "merge":
             docs = output.get("precedent_docs", [])
-            return f"판례 {len(docs)}건 검색됨"
-        elif node_name == "analyze_precedent":
-            analysis = output.get("precedent_analysis", "") or ""
-            return analysis[:200] if len(analysis) > 200 else analysis
+            return f"최종 판례 {len(docs)}건 선정"
+ 
         elif node_name == "generate_answer":
             answer = output.get("final_answer", "") or ""
-            return f"답변 {len(answer)}자 생성 완료"
+            used = output.get("used_precedents", [])
+            return f"답변 {len(answer)}자 생성 / 인용 판례 {len(used)}건"
+ 
+        elif node_name == "procedure_guide":
+            guide = output.get("procedure_guide", "") or ""
+            return f"절차 안내 {len(guide)}자 생성"
+ 
         return ""
 
     def _format_sources(self, state: dict) -> list:
         """그래프 실행 결과 state에서 소스 문서 리스트를 추출"""
         sources = []
-
-        for doc in state.get("qna_docs", []):
-            m = doc.metadata
-            sources.append({
-                "type": "qna",
-                "title": m.get("title", ""),
-                "ref_no": m.get("ref_no", ""),
-                "ref_date": m.get("ref_date", ""),
-                "chapter_title": m.get("chapter_title", ""),
-            })
 
         for doc in state.get("law_docs", []):
             m = doc.metadata
@@ -148,15 +127,17 @@ class RAGEngine:
                 "article_title": m.get("article_title", ""),
                 "chapter_title": m.get("chapter_title", ""),
             })
-
+ 
         for doc in state.get("precedent_docs", []):
             m = doc.metadata
             sources.append({
                 "type": "precedent",
-                "case_no": (m.get("source_file", "")
-                            .replace(".md", "")
-                            .replace(".json", "")),
+                "case_no": (
+                    m.get("source_file", "")
+                    .replace(".md", "")
+                    .replace(".json", "")
+                ),
                 "category": m.get("category", ""),
             })
-
+ 
         return sources
