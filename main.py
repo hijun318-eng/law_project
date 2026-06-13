@@ -24,7 +24,6 @@ for p in [PROJECT_ROOT, LAW_TEST_DIR]:
 # ── RAG 엔진 연결 (선택적) ────────────────────────────────
 try:
     from backend.rag_engine import RAGEngine
-    from src.history_db import HistoryDB
     RAG_AVAILABLE = True
 except ImportError as e:
     RAG_AVAILABLE = False
@@ -630,21 +629,13 @@ def _qa_answer(question: str):
             # 3. status 박스로 진행상황 표시
             status = st.status("🔍 법률 분석 진행 중...", expanded=True)
 
-            full_answer = ""
             for node_name, label, detail in engine.stream_answer(question):
-                if node_name == "token":
-                    # 채팅 버블 안에서 실시간 텍스트 갱신
-                    full_answer += detail
-                    answer_placeholder.markdown(full_answer + "▌")
-                    status.update(
-                        label=f"💡 답변 생성 중... ({len(full_answer)}자)",
-                        state="running",
-                    )
-
-                elif node_name == "done":
-                    answer_placeholder.markdown(full_answer)
-                    answer = detail.get("answer", "")
+                if node_name == "done":
+                    answer  = detail.get("answer", "")
                     sources = detail.get("sources", [])
+ 
+                    # ← 핵심: done에서 받은 답변을 placeholder에 표시
+                    answer_placeholder.markdown(answer)
                     status.update(label="✅ 분석 완료", state="complete")
                     progress_log.append(
                         ("done", "✅ 분석 완료", f"답변 {len(answer)}자, 출처 {len(sources)}건")
@@ -657,18 +648,16 @@ def _qa_answer(question: str):
                         status.write(f"> {short}")
                     progress_log.append((node_name, label, detail if isinstance(detail, str) else ""))
 
-            if full_answer:
-                progress_log.append(
-                    ("stream_token", "💡 답변 생성 (스트리밍)", f"총 {len(full_answer)}자")
-                )
-
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             answer = f"⚠️ 오류가 발생했습니다: {str(e)}"
             sources = []
             st.error(f"RAG 엔진 오류: {e}")
     else:
         with st.chat_message("assistant"):
-            st.markdown(_fallback_answer(question))
+            answer = _fallback_answer(question)
+            st.markdown(answer)
 
     st.session_state.qa_messages.append({
         "role": "assistant",
