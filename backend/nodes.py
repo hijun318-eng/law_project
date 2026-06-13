@@ -140,6 +140,7 @@ def merge_node(state: GraphState) -> dict:
     for doc in state.get("precedent_docs_law", [])[:3]:
         cn = Path(doc.metadata.get("source_file", "")).stem
         if cn not in seen:
+            seen.add(cn)
             new_doc = deepcopy(doc)
             new_doc.metadata["source"] = "law_based"
             merged.append(new_doc)
@@ -147,6 +148,7 @@ def merge_node(state: GraphState) -> dict:
     for doc in state.get("precedent_docs_direct", []):
         cn = Path(doc.metadata.get("source_file", "")).stem
         if cn not in seen:
+            seen.add(cn)
             new_doc = deepcopy(doc)
             new_doc.metadata["source"] = "sac_direct"
             merged.append(new_doc)
