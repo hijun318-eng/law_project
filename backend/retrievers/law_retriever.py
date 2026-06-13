@@ -72,7 +72,6 @@ class LawRetriever:
                 ]
             })
 
-            # 안전장치: DB 결과가 비어있는 경우 스킵
             if not result or not result.get("documents"):
                 continue
 

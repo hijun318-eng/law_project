@@ -26,12 +26,6 @@ class AnswerService:
 
         answer = llm.invoke(prompt).content
 
-        # used_precedents = re.findall(
-        #     r"\b\d{4}[가-힣]{1,3}\d+\b",
-        #     answer
-        # )
-        # used_precedents = list(dict.fromkeys(used_precedents))
-
         return {
             "final_answer": answer
         }
