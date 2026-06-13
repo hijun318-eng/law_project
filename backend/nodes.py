@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import re
 from typing import TypedDict
+from copy import deepcopy
+
 
 from backend.database import law_db, precedent_db
 from backend.services.answer_service import answer_service
@@ -52,7 +54,7 @@ def retrieve_precedent_node(state: GraphState) -> dict:
         brief = doc.metadata.get("llm_brief", "")
    
         matches = re.findall(
-            r'([가-힣]{2,20}법)\s*(제\d+조(?:의\d+)?)',
+            r'([가-힣\s·]{2,30}(?:법|법률))\s*(제\d+조(?:의\d+)?)',
             brief
         )
         for raw_law, raw_article in matches:
@@ -138,26 +140,32 @@ def merge_node(state: GraphState) -> dict:
     for doc in state.get("precedent_docs_law", [])[:3]:
         cn = Path(doc.metadata.get("source_file", "")).stem
         if cn not in seen:
-            seen.add(cn)
-            doc.metadata["source"] = "law_based"
-            merged.append(doc)
+            new_doc = deepcopy(doc)
+            new_doc.metadata["source"] = "law_based"
+            merged.append(new_doc)
 
     for doc in state.get("precedent_docs_direct", []):
         cn = Path(doc.metadata.get("source_file", "")).stem
         if cn not in seen:
-            seen.add(cn)
-            doc.metadata["source"] = "sac_direct"
-            merged.append(doc)
+            new_doc = deepcopy(doc)
+            new_doc.metadata["source"] = "sac_direct"
+            merged.append(new_doc)
 
     precedent_analysis = "\n\n".join([
         f"[판례:{Path(d.metadata.get('source_file','')).stem}]\n"
         f"{d.metadata.get('llm_brief', d.page_content)}"
         for d in merged[:5]
     ])
+    
+    used_precedents = [
+        Path(d.metadata.get("source_file", "")).stem
+        for d in merged[:5]
+    ]
 
     return {
         "precedent_docs": merged[:5],
         "precedent_analysis": precedent_analysis,
+        "used_precedents": used_precedents,
     }
 
 
