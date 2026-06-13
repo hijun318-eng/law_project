@@ -625,28 +625,27 @@ def _qa_answer(question: str):
             # 2. assistant 채팅 버블 영역을 status 보다 먼저 생성
             with st.chat_message("assistant"):
                 answer_placeholder = st.empty()
+                # 3. status 박스로 진행상황 표시
+                status = st.status("🔍 법률 분석 진행 중...", expanded=True)
 
-            # 3. status 박스로 진행상황 표시
-            status = st.status("🔍 법률 분석 진행 중...", expanded=True)
+                for node_name, label, detail in engine.stream_answer(question):
+                    if node_name == "done":
+                        answer  = detail.get("answer", "")
+                        sources = detail.get("sources", [])
+    
+                        # ← 핵심: done에서 받은 답변을 placeholder에 표시
+                        answer_placeholder.markdown(answer)
+                        status.update(label="✅ 분석 완료", state="complete")
+                        progress_log.append(
+                            ("done", "✅ 분석 완료", f"답변 {len(answer)}자, 출처 {len(sources)}건")
+                        )
 
-            for node_name, label, detail in engine.stream_answer(question):
-                if node_name == "done":
-                    answer  = detail.get("answer", "")
-                    sources = detail.get("sources", [])
- 
-                    # ← 핵심: done에서 받은 답변을 placeholder에 표시
-                    answer_placeholder.markdown(answer)
-                    status.update(label="✅ 분석 완료", state="complete")
-                    progress_log.append(
-                        ("done", "✅ 분석 완료", f"답변 {len(answer)}자, 출처 {len(sources)}건")
-                    )
-
-                else:
-                    status.update(label=label, state="running")
-                    if detail:
-                        short = (detail[:80] + "...") if isinstance(detail, str) and len(detail) > 80 else detail
-                        status.write(f"> {short}")
-                    progress_log.append((node_name, label, detail if isinstance(detail, str) else ""))
+                    else:
+                        status.update(label=label, state="running")
+                        if detail:
+                            short = (detail[:80] + "...") if isinstance(detail, str) and len(detail) > 80 else detail
+                            status.write(f"> {short}")
+                        progress_log.append((node_name, label, detail if isinstance(detail, str) else ""))
 
         except Exception as e:
             import traceback
