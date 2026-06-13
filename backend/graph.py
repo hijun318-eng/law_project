@@ -32,6 +32,7 @@ builder.add_edge("retrieve_precedent",        "retrieve_law")
 builder.add_edge("retrieve_law",              "retrieve_precedent_by_law")
 builder.add_edge("retrieve_precedent_by_law", "merge")
 builder.add_edge("merge",                     "generate_answer")
+# builder.add_edge("generate_answer", END)
 builder.add_edge("generate_answer",           "procedure_guide")
 builder.add_edge("procedure_guide",           END)
 

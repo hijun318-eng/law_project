@@ -13,7 +13,7 @@ class AnswerService:
     def __init__(self):
         self.prompt_template = load_prompt("answer_prompt.md")
 
-    def generate(self, law_analysis, precedent_analysis, question):
+    def generate(self, law_analysis, precedent_analysis, question, law_source: str = "unknown"):
 
         law_context = self._build_law_context(law_analysis)
 
@@ -25,6 +25,7 @@ class AnswerService:
         prompt = prompt.replace("{law_context}", law_context)
         prompt = prompt.replace("{precedent_context}", precedent_context)
         prompt = prompt.replace("{question}", question)
+        prompt = prompt.replace("{law_source}", law_source)
 
         answer = llm.invoke(prompt).content
 

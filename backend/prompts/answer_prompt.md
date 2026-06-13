@@ -5,6 +5,10 @@
 
 <articles>
 {law_context}
+{LAW SOURCE}
+- precedent_based: 판례 기반 법령
+- query_based: 사용자 질의 기반 법령
+- hybrid (both precedent + query)
 </articles>
 
 <precedents>

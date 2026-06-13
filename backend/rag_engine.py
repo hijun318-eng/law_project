@@ -73,7 +73,7 @@ class RAGEngine:
                 result.update(output)
                 label = NODE_LABELS.get(node_name, node_name)
                 detail = self._format_stream_detail(node_name, output)
-                yield node_name, label, detail
+                yield (node_name, label, detail)
 
         # 최종 결과
         sources = self._format_sources(result)
