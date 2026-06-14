@@ -150,19 +150,25 @@ def check_minimum_wage(
     hourly_wage: int,
     daily_hours: int,
     weekly_days: int,
+    min_wage_per_hour: int = 10320,
 ) -> str:
     """
-    최저임금 위반 여부를 확인합니다. 2025년 기준 최저시급 10,030원을 기준으로 판단합니다.
+    최저임금 위반 여부를 확인합니다. 2026년 기준 최저시급 10,320원을 기본값으로 판단하며, 직접 최저시급을 지정할 수도 있습니다.
+
+    - 2026년 법정 최저시급: 10,320원 (고용노동부 고시 제2025-47호)
+    - 필요 시 min_wage_per_hour 파라미터로 다른 금액을 지정할 수 있습니다.
 
     Args:
         hourly_wage: 내 시급 (원, 예: 10000)
         daily_hours: 1일 근무시간 (예: 8)
         weekly_days: 주간 근무일수 (예: 5)
+        min_wage_per_hour: 비교할 최저시급 (원, 기본값 10320 = 2026년 기준)
 
     Returns:
         계산 결과 요약 문자열
     """
-    MIN_WAGE_2025 = 10030
+    MIN_WAGE_YEAR = 2026
+    current_min_wage = min_wage_per_hour if min_wage_per_hour > 0 else 10320
     weekly_hours = daily_hours * weekly_days
 
     # 주휴수당 반영한 실질 시급 계산
@@ -172,21 +178,21 @@ def check_minimum_wage(
         effective_hours = weekly_hours
 
     effective_hourly = (hourly_wage * weekly_hours) / effective_hours if effective_hours > 0 else 0
-    ratio = (effective_hourly / MIN_WAGE_2025) * 100
+    ratio = (effective_hourly / current_min_wage) * 100
 
-    if effective_hourly >= MIN_WAGE_2025:
+    if effective_hourly >= current_min_wage:
         return (
             f"✅ **최저임금 위반 아님**\n\n"
             f"**확인 결과**\n"
             f"  • 내 시급: {hourly_wage:,}원\n"
             f"  • 1일 근무: {daily_hours}시간 × 주 {weekly_days}일 = 주 {weekly_hours}시간\n"
             f"  • 실질 시급 (주휴 포함): {effective_hourly:,.0f}원\n"
-            f"  • 2025년 최저시급: {MIN_WAGE_2025:,}원\n"
+            f"  • {MIN_WAGE_YEAR}년 최저시급: {current_min_wage:,}원\n"
             f"  • 최저임금 대비: {ratio:.1f}%\n\n"
-            f"✅ 최저시급 {MIN_WAGE_2025:,}원 이상으로 적법합니다."
+            f"✅ 최저시급 {current_min_wage:,}원 이상으로 적법합니다."
         )
     else:
-        shortage_per_week = (MIN_WAGE_2025 - effective_hourly) * weekly_hours
+        shortage_per_week = (current_min_wage - effective_hourly) * weekly_hours
         monthly_shortage = shortage_per_week * 4.345
         return (
             f"❌ **최저임금 위반 의심**\n\n"
@@ -194,7 +200,7 @@ def check_minimum_wage(
             f"  • 내 시급: {hourly_wage:,}원\n"
             f"  • 1일 근무: {daily_hours}시간 × 주 {weekly_days}일 = 주 {weekly_hours}시간\n"
             f"  • 실질 시급 (주휴 포함): {effective_hourly:,.0f}원\n"
-            f"  • 2025년 최저시급: {MIN_WAGE_2025:,}원\n"
+            f"  • {MIN_WAGE_YEAR}년 최저시급: {current_min_wage:,}원\n"
             f"  • 최저임금 대비: {ratio:.1f}%\n"
             f"  • 예상 월 손해액: 약 {monthly_shortage:,.0f}원\n\n"
             f"**📞 고용노동부 상담센터 1350으로 신고하세요.**\n"

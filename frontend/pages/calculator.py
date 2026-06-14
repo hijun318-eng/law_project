@@ -128,9 +128,10 @@ def _calc_weekly():
 
 def _calc_min_wage():
     st.markdown("### 최저임금 위반 확인")
-    st.caption("2025년 기준 최저시급 **10,030원**을 기준으로 확인합니다.")
+    st.caption("2026년 기준 최저시급 **10,320원**을 기본값으로 확인합니다. 직접 최저시급을 입력할 수도 있습니다.")
 
-    MIN_WAGE_2025 = 10030
+    MIN_WAGE_DEFAULT = 10320
+    MIN_WAGE_YEAR = 2026
 
     col1, col2 = st.columns(2)
     with col1:
@@ -138,6 +139,18 @@ def _calc_min_wage():
     with col2:
         daily_hours = st.number_input("1일 근무시간", min_value=1, max_value=24, value=8, step=1)
     weekly_days = st.number_input("주간 근무일수", min_value=1, max_value=7, value=5, step=1)
+
+    # 사용자 지정 최저시급
+    use_custom_min_wage = st.checkbox("최저시급 직접 입력", value=False,
+                                       help="체크하면 기준 최저시급을 직접 입력할 수 있습니다.")
+    if use_custom_min_wage:
+        custom_min_wage = st.number_input(f"기준 최저시급 (원)", min_value=0, value=MIN_WAGE_DEFAULT, step=100, format="%d",
+                                           help=f"기본값은 {MIN_WAGE_YEAR}년 법정 최저시급 {MIN_WAGE_DEFAULT:,}원입니다.")
+        current_min_wage = custom_min_wage if custom_min_wage > 0 else MIN_WAGE_DEFAULT
+        year_label = f"사용자 지정"
+    else:
+        current_min_wage = MIN_WAGE_DEFAULT
+        year_label = f"{MIN_WAGE_YEAR}년"
 
     if st.button("최저임금 확인", use_container_width=True, type="primary"):
         weekly_hours = daily_hours * weekly_days
@@ -147,29 +160,29 @@ def _calc_min_wage():
             effective_hours = weekly_hours
         effective_hourly = (input_hourly * weekly_hours) / effective_hours if effective_hours > 0 else 0
 
-        ratio = (effective_hourly / MIN_WAGE_2025) * 100
+        ratio = (effective_hourly / current_min_wage) * 100
 
-        if effective_hourly >= MIN_WAGE_2025:
+        if effective_hourly >= current_min_wage:
             st.markdown(f"""
             <div class="calc-result" style="color:{C_SUCCESS};">
-            ✅ 최저임금 위반 아님
+            ✅ 최저임금 위반 아님 ({year_label} 기준)
             </div>
             """, unsafe_allow_html=True)
             st.markdown(f"""
             - 실질 시급: {effective_hourly:,.0f}원
-            - 최저시급(2025): {MIN_WAGE_2025:,}원
+            - 기준 최저시급: {current_min_wage:,}원 ({year_label})
             - 최저임금 대비: {ratio:.1f}%
             """)
         else:
-            shortage = (MIN_WAGE_2025 - effective_hourly) * effective_hours / weekly_hours * weekly_hours * 4.345
+            shortage = (current_min_wage - effective_hourly) * effective_hours / weekly_hours * weekly_hours * 4.345
             st.markdown(f"""
             <div class="calc-result" style="color:{C_WARNING};">
-            ❌ 최저임금 위반 의심
+            ❌ 최저임금 위반 의심 ({year_label} 기준)
             </div>
             """, unsafe_allow_html=True)
             st.markdown(f"""
             - 실질 시급: {effective_hourly:,.0f}원
-            - 최저시급(2025): {MIN_WAGE_2025:,}원
+            - 기준 최저시급: {current_min_wage:,}원 ({year_label})
             - 최저임금 대비: {ratio:.1f}%
             - 예상 월 손해: 약 {shortage:,.0f}원
 
