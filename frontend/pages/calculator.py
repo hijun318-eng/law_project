@@ -4,6 +4,12 @@
 import streamlit as st
 from frontend.config import C_SUCCESS, C_WARNING
 
+try:
+    from backend.calculator_engine import CalculatorEngine
+    CALC_AVAILABLE = True
+except ImportError:
+    CALC_AVAILABLE = False
+
 
 def _calc_retirement():
     st.markdown("### 퇴직금 계산기")
@@ -175,16 +181,65 @@ def render_calculator():
     st.markdown('<p class="main-header">🧮 수당 계산기</p>', unsafe_allow_html=True)
     st.markdown("퇴직금, 연차수당, 주휴수당, 최저임금을 자동으로 계산합니다.")
 
-    calc_type = st.selectbox(
-        "계산 유형 선택",
-        ["퇴직금 계산", "연차수당 계산", "주휴수당 계산", "최저임금 위반 확인"],
-    )
+    tab1, tab2 = st.tabs(["📝 입력 폼", "💬 채팅 계산"])
 
-    if calc_type == "퇴직금 계산":
-        _calc_retirement()
-    elif calc_type == "연차수당 계산":
-        _calc_annual()
-    elif calc_type == "주휴수당 계산":
-        _calc_weekly()
-    elif calc_type == "최저임금 위반 확인":
-        _calc_min_wage()
+    # ════════════════════════════════════════
+    # TAB 1: 기존 입력 폼 (변경 없음)
+    # ════════════════════════════════════════
+    with tab1:
+        calc_type = st.selectbox(
+            "계산 유형 선택",
+            ["퇴직금 계산", "연차수당 계산", "주휴수당 계산", "최저임금 위반 확인"],
+        )
+
+        if calc_type == "퇴직금 계산":
+            _calc_retirement()
+        elif calc_type == "연차수당 계산":
+            _calc_annual()
+        elif calc_type == "주휴수당 계산":
+            _calc_weekly()
+        elif calc_type == "최저임금 위반 확인":
+            _calc_min_wage()
+
+    # ════════════════════════════════════════
+    # TAB 2: 채팅 계산 (ReAct 에이전트)
+    # ════════════════════════════════════════
+    with tab2:
+        if not CALC_AVAILABLE:
+            st.warning("⚠️ CalculatorEngine을 불러올 수 없습니다. 백엔드 모듈을 확인해주세요.")
+            return
+
+        # 세션 상태 초기화
+        if "calc_chat_messages" not in st.session_state:
+            st.session_state.calc_chat_messages = []
+
+        # 채팅 메시지 히스토리 표시
+        for msg in st.session_state.calc_chat_messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        # 채팅 입력
+        if prompt := st.chat_input("자연어로 계산을 입력하세요 (예: 퇴직금 계산해줘, 3년 근무, 월 300만원)"):
+            # 사용자 메시지 추가 및 표시
+            st.session_state.calc_chat_messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # 어시스턴트 응답 생성
+            with st.chat_message("assistant"):
+                with st.spinner("🧮 계산 중..."):
+                    try:
+                        engine = getattr(st.session_state, "_calc_engine", None)
+                        if engine is None:
+                            engine = CalculatorEngine()
+                            st.session_state._calc_engine = engine
+
+                        result = engine.calculate(prompt)
+                        answer = result.get("answer", "결과를 생성하지 못했습니다.")
+                        st.markdown(answer)
+                        st.session_state.calc_chat_messages.append({"role": "assistant", "content": answer})
+
+                    except Exception as e:
+                        err_msg = f"계산 중 오류가 발생했습니다: {e}"
+                        st.error(err_msg)
+                        st.session_state.calc_chat_messages.append({"role": "assistant", "content": err_msg})
