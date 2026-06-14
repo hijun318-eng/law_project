@@ -3,6 +3,13 @@
 """
 import streamlit as st
 from frontend.config import C_SUCCESS, C_WARNING
+from backend.calculator.tools import (
+    calc_retirement_pay,
+    calc_annual_leave_pay,
+    calc_weekly_allowance,
+    calc_minimum_wage_check,
+)
+from backend.constants import MINIMUM_WAGE_2026, MINIMUM_WAGE_YEAR
 
 try:
     from backend.calculator_engine import CalculatorEngine
@@ -37,17 +44,17 @@ def _calc_retirement():
     st.info(f"📌 평균임금: 1일 **{avg_wage:,.0f}원**")
 
     if st.button("퇴직금 계산", use_container_width=True, type="primary"):
-        if total_days >= 365 and avg_wage > 0:
-            severance = avg_wage * 30 * (total_days / 365)
-            st.markdown(f'<div class="calc-result">💰 예상 퇴직금: {severance:,.0f}원</div>', unsafe_allow_html=True)
+        result = calc_retirement_pay(years, months, last_3m_salary, paid_days)
+        if result["success"]:
+            st.markdown(f'<div class="calc-result">💰 예상 퇴직금: {result["severance"]:,}원</div>', unsafe_allow_html=True)
             st.markdown(f"""
             **계산 상세:**
-            - 1일 평균임금: {avg_wage:,.0f}원
-            - 근속일수: 약 {total_days}일
-            - 산식: {avg_wage:,.0f}원 × 30일 × ({total_days}일 ÷ 365일)
+            - 1일 평균임금: {result["avg_wage"]:,.0f}원
+            - 근속일수: 약 {result["total_days"]}일
+            - 산식: {result["avg_wage"]:,.0f}원 × 30일 × ({result["total_days"]}일 ÷ 365일)
             """)
         else:
-            if total_days < 365:
+            if "1년 미만" in str(result.get("error", "")):
                 st.error("❌ 퇴직금은 1년 이상 근속 시 발생합니다.")
             else:
                 st.error("❌ 임금 정보를 확인해주세요.")
@@ -85,13 +92,16 @@ def _calc_annual():
         remaining = st.number_input("미사용 연차 일수 (자동)", min_value=0, value=5, step=1)
 
     if st.button("연차수당 계산", use_container_width=True, type="primary"):
-        amount = daily_wage * remaining
-        st.markdown(f'<div class="calc-result">💰 예상 연차수당: {amount:,.0f}원</div>', unsafe_allow_html=True)
+        result = calc_annual_leave_pay(years_worked, daily_wage, used_days)
+        st.markdown(f'<div class="calc-result">💰 예상 연차수당: {result["amount"]:,}원</div>', unsafe_allow_html=True)
         st.markdown(f"""
         **계산 상세:**
-        - 1일 통상임금: {daily_wage:,.0f}원
-        - 미사용 연차: {remaining}일
-        - 산식: {daily_wage:,.0f}원 × {remaining}일 = {amount:,.0f}원
+        - {result["day_note"]}
+        - 1일 통상임금: {result["daily_wage"]:,}원
+        - 발생 연차: {result["total_days"]}일
+        - 사용 연차: {result["used_days"]}일
+        - 미사용 연차: {result["remaining"]}일
+        - 산식: {result["daily_wage"]:,}원 × {result["remaining"]}일 = {result["amount"]:,}원
         """)
 
 
@@ -105,9 +115,11 @@ def _calc_weekly():
     with col2:
         weekly_hours = st.number_input("1주 소정근로시간", min_value=0, max_value=40, value=40, step=1)
 
-    if weekly_hours >= 15:
-        weekly_allowance = (weekly_hours / 40) * 8 * hourly_wage
-        monthly_allowance = weekly_allowance * 4.345
+    _wk_result = calc_weekly_allowance(hourly_wage, weekly_hours)  # 미리 계산
+
+    if _wk_result["success"]:
+        weekly_allowance = _wk_result["weekly_allowance"]
+        monthly_allowance = _wk_result["monthly_allowance"]
 
         if st.button("주휴수당 계산", use_container_width=True, type="primary"):
             st.markdown(f'<div class="calc-result">💰 주휴수당: 주 {weekly_allowance:,.0f}원</div>', unsafe_allow_html=True)
@@ -116,7 +128,8 @@ def _calc_weekly():
             - 시급: {hourly_wage:,.0f}원
             - 1주 소정근로시간: {weekly_hours}시간
             - 주휴수당 산식: ({weekly_hours}시간 ÷ 40시간) × 8시간 × {hourly_wage:,.0f}원
-            - 월 환산: 약 {monthly_allowance:,.0f}원
+            - 주 환산: {weekly_allowance:,.0f}원
+            - 월 환산 (4.345주 기준): 약 {monthly_allowance:,.0f}원
 
             **📌 주의사항:**
             - 주 15시간 미만 근로자는 주휴수당 지급 대상이 아닙니다.
@@ -128,10 +141,7 @@ def _calc_weekly():
 
 def _calc_min_wage():
     st.markdown("### 최저임금 위반 확인")
-    st.caption("2026년 기준 최저시급 **10,320원**을 기본값으로 확인합니다. 직접 최저시급을 입력할 수도 있습니다.")
-
-    MIN_WAGE_DEFAULT = 10320
-    MIN_WAGE_YEAR = 2026
+    st.caption(f"{MINIMUM_WAGE_YEAR}년 기준 최저시급 **{MINIMUM_WAGE_2026:,}원**을 기본값으로 확인합니다. 직접 최저시급을 입력할 수도 있습니다.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -144,47 +154,39 @@ def _calc_min_wage():
     use_custom_min_wage = st.checkbox("최저시급 직접 입력", value=False,
                                        help="체크하면 기준 최저시급을 직접 입력할 수 있습니다.")
     if use_custom_min_wage:
-        custom_min_wage = st.number_input(f"기준 최저시급 (원)", min_value=0, value=MIN_WAGE_DEFAULT, step=100, format="%d",
-                                           help=f"기본값은 {MIN_WAGE_YEAR}년 법정 최저시급 {MIN_WAGE_DEFAULT:,}원입니다.")
-        current_min_wage = custom_min_wage if custom_min_wage > 0 else MIN_WAGE_DEFAULT
+        custom_min_wage = st.number_input(f"기준 최저시급 (원)", min_value=0, value=MINIMUM_WAGE_2026, step=100, format="%d",
+                                           help=f"기본값은 {MINIMUM_WAGE_YEAR}년 법정 최저시급 {MINIMUM_WAGE_2026:,}원입니다.")
+        current_min_wage = custom_min_wage if custom_min_wage > 0 else MINIMUM_WAGE_2026
         year_label = f"사용자 지정"
     else:
-        current_min_wage = MIN_WAGE_DEFAULT
-        year_label = f"{MIN_WAGE_YEAR}년"
+        current_min_wage = MINIMUM_WAGE_2026
+        year_label = f"{MINIMUM_WAGE_YEAR}년"
 
     if st.button("최저임금 확인", use_container_width=True, type="primary"):
-        weekly_hours = daily_hours * weekly_days
-        if weekly_hours >= 15:
-            effective_hours = weekly_hours + (weekly_hours / 40) * 8
-        else:
-            effective_hours = weekly_hours
-        effective_hourly = (input_hourly * weekly_hours) / effective_hours if effective_hours > 0 else 0
+        result = calc_minimum_wage_check(input_hourly, daily_hours, weekly_days, current_min_wage)
 
-        ratio = (effective_hourly / current_min_wage) * 100
-
-        if effective_hourly >= current_min_wage:
+        if result["success"]:
             st.markdown(f"""
             <div class="calc-result" style="color:{C_SUCCESS};">
             ✅ 최저임금 위반 아님 ({year_label} 기준)
             </div>
             """, unsafe_allow_html=True)
             st.markdown(f"""
-            - 실질 시급: {effective_hourly:,.0f}원
-            - 기준 최저시급: {current_min_wage:,}원 ({year_label})
-            - 최저임금 대비: {ratio:.1f}%
+            - 실질 시급: {result["effective_hourly"]:,.0f}원
+            - 기준 최저시급: {result["current_min_wage"]:,}원 ({year_label})
+            - 최저임금 대비: {result["ratio"]:.1f}%
             """)
         else:
-            shortage = (current_min_wage - effective_hourly) * effective_hours / weekly_hours * weekly_hours * 4.345
             st.markdown(f"""
             <div class="calc-result" style="color:{C_WARNING};">
             ❌ 최저임금 위반 의심 ({year_label} 기준)
             </div>
             """, unsafe_allow_html=True)
             st.markdown(f"""
-            - 실질 시급: {effective_hourly:,.0f}원
-            - 기준 최저시급: {current_min_wage:,}원 ({year_label})
-            - 최저임금 대비: {ratio:.1f}%
-            - 예상 월 손해: 약 {shortage:,.0f}원
+            - 실질 시급: {result["effective_hourly"]:,.0f}원
+            - 기준 최저시급: {result["current_min_wage"]:,}원 ({year_label})
+            - 최저임금 대비: {result["ratio"]:.1f}%
+            - 예상 월 손해: 약 {result["monthly_shortage"]:,}원
 
             **📞 고용노동부 상담센터 1350으로 신고하세요.**
             """)
