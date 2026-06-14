@@ -1,0 +1,55 @@
+"""
+frontend/app.py — 애플리케이션 메인 라우터
+"""
+import streamlit as st
+from frontend.config import init_session, load_css
+from frontend.sidebar import render_sidebar
+from frontend.pages.home import render_home
+from frontend.pages.qa import render_qa
+from frontend.pages.rights import render_rights
+from frontend.pages.report import render_report
+from frontend.pages.evidence import render_evidence
+from frontend.pages.calculator import render_calculator
+from frontend.pages.docwriter import render_docwriter
+from frontend.pages.contract import render_contract
+
+
+def main():
+    # 초기화
+    init_session()
+    load_css()
+
+    # 사이드바 렌더링
+    render_sidebar()
+
+    # 페이지 라우팅
+    page = st.session_state.page
+
+    if page == "home":
+        render_home()
+    elif page == "qa":
+        render_qa()
+    elif page == "rights":
+        render_rights()
+    elif page == "report":
+        render_report()
+    elif page == "evidence":
+        render_evidence()
+    elif page == "calculator":
+        render_calculator()
+    elif page == "docwriter":
+        render_docwriter()
+    elif page == "contract":
+        render_contract()
+    else:
+        render_home()
+
+    # 푸터
+    st.markdown(
+        f"<div class='footer'>"
+        f"⚖️ 노동 법률 AI 어시스턴트 v1.0 | "
+        f"본 서비스는 참고용이며 법적 효력이 없습니다. | "
+        f"© 2025"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
