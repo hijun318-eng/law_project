@@ -5,14 +5,11 @@ from datetime import datetime
 import streamlit as st
 
 
-def _generate_draft(doc_type, name, phone, company, address, situation, detail, amount, mode):
+def _generate_draft(doc_type, name, phone, company, address, situation, detail, amount):
     """서류 초안 생성"""
     today = datetime.now().strftime("%Y년 %m월 %d일")
 
-    if mode == "easy":
-        difficulty_note = "※ 본 문서는 참고용 초안이며 법적 효력이 없습니다. 발송 전 법률 전문가의 검토를 권장합니다."
-    else:
-        difficulty_note = "※ 본 문서는 법률 전문가의 검토를 받지 않은 초안입니다. 실제 제출 시 변호사의 자문을 구하시기 바랍니다."
+    difficulty_note = "※ 본 문서는 참고용 초안이며 법적 효력이 없습니다. 발송 전 법률 전문가의 검토를 권장합니다."
 
     if "진정서" in doc_type:
         law_refs = {
@@ -180,10 +177,8 @@ def render_docwriter():
         )
         amount = st.text_input("청구 금액 (해당 시)", placeholder="예: 5,000,000원")
 
-    mode = st.session_state.get("mode", "easy")
-
     if st.button("초안 생성", use_container_width=True, type="primary"):
         if not name or not company or not detail:
             st.warning("⚠️ 신청인 이름, 상대방, 사건 내용은 필수입니다.")
         else:
-            _generate_draft(doc_type, name, phone, company, address, situation, detail, amount, mode)
+            _generate_draft(doc_type, name, phone, company, address, situation, detail, amount)

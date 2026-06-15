@@ -54,8 +54,6 @@ PAGES = {
 def init_session():
     if "page" not in st.session_state:
         st.session_state.page = "home"
-    if "mode" not in st.session_state:
-        st.session_state.mode = "easy"  # "easy" or "expert"
     if "session_id" not in st.session_state:
         st.session_state.session_id = str(uuid.uuid4())
     if "qa_messages" not in st.session_state:

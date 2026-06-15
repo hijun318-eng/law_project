@@ -48,29 +48,6 @@ def render_sidebar():
 
         st.divider()
 
-        # ── 모드 토글 ──
-        st.markdown("#### 🎯 설명 모드")
-        current_mode = st.session_state.get("mode", "easy")
-        mode_labels = {"easy": "쉬운 말로 설명", "expert": "전문적으로 설명"}
-        new_mode = st.radio(
-            "설명 모드",
-            options=["easy", "expert"],
-            format_func=lambda x: mode_labels[x],
-            index=0 if current_mode == "easy" else 1,
-            label_visibility="collapsed",
-            key="mode_radio",
-        )
-        if new_mode != current_mode:
-            st.session_state.mode = new_mode
-            st.rerun()
-
-        if current_mode == "easy":
-            st.caption("법률 용어를 쉽게 풀어서 설명합니다.")
-        else:
-            st.caption("법조문과 판례를 포함한 전문적인 설명을 제공합니다.")
-
-        st.divider()
-
         # ── 시스템 상태 ──
         with st.expander("🔧 시스템 상태", expanded=False):
             if RAG_AVAILABLE:
@@ -86,7 +63,6 @@ def render_sidebar():
                     st.markdown("🤖 LLM: ❌ 엔진 미초기화 (LM Studio 필요)")
             else:
                 st.markdown("🤖 LLM: ⚠️ 모듈 미설치")
-            st.markdown(f"💬 설명 모드: {'쉬운 말' if current_mode == 'easy' else '전문가'}")
             st.markdown(f"🆔 세션: {st.session_state.get('session_id', '-')[:8]}...")
 
         # ── 푸터 ──
