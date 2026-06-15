@@ -4,135 +4,41 @@
 from datetime import datetime
 import streamlit as st
 
+from frontend.pages.docwriter_data import (
+    TEMPLATE_COMPLAINT,
+    TEMPLATE_CRIMINAL,
+    TEMPLATE_CERTIFIED,
+    LAW_REFS,
+)
+
 
 def _generate_draft(doc_type, name, phone, company, address, situation, detail, amount):
     """서류 초안 생성"""
     today = datetime.now().strftime("%Y년 %m월 %d일")
-
     difficulty_note = "※ 본 문서는 참고용 초안이며 법적 효력이 없습니다. 발송 전 법률 전문가의 검토를 권장합니다."
 
+    # 공통 치환 변수
+    subs = {
+        "name": name or "미기재",
+        "phone": phone or "미기재",
+        "company": company or "미기재",
+        "address": address or "미기재",
+        "situation": situation,
+        "detail": detail,
+        "today": today,
+        "difficulty_note": difficulty_note,
+    }
+
     if "진정서" in doc_type:
-        law_refs = {
-            "임금체불": "근로기준법 제36조(임금지급), 제43조(임금지급 방법), 제109조(벌칙)",
-            "부당해고": "근로기준법 제23조(해고 등의 제한), 제27조(해고사유 등의 서면통지)",
-            "직장 내 괴롭힘": "근로기준법 제76조의2, 제76조의3",
-            "산업재해": "산업재해보상보험법 제5조",
-            "기타": "근로기준법 관련 조항",
-        }
-        law_ref = law_refs.get(situation, "근로기준법 관련 조항")
-
-        draft = f"""# 진정서
-
-## 1. 신청인
-- **성명**: {name}
-- **연락처**: {phone or "미기재"}
-
-## 2. 피신청인
-- **상호/성명**: {company}
-- **주소**: {address or "미기재"}
-
-## 3. 진정 취지
-{situation}과 관련하여 피신청인이 다음과 같은 위반행위를 하였으므로,
-관계 법령에 따라 시정조치를 요청합니다.
-
-## 4. 사실 관계
-{detail}
-
-## 5. 관련 법령
-{law_ref}
-
-## 6. 첨부 자료
-- [ ] 근로계약서 사본
-- [ ] 급여 명세서
-- [ ] 출퇴근 기록
-- [ ] 기타 증빙 자료
-
-## 7. 참고
-- **관할**: 관할 지방고용노동청
-- **신고처**: 고용노동부 상담센터 ☎ 1350
-- **처리기한**: 접수일로부터 30일 이내 조치 통보
-
----
-
-위와 같이 진정서를 제출합니다.
-
-{today}
-**신청인**: {name} (서명/인)
-
-{difficulty_note}"""
+        subs["law_ref"] = LAW_REFS.get(situation, "근로기준법 관련 조항")
+        draft = TEMPLATE_COMPLAINT.substitute(**subs)
 
     elif "고소장" in doc_type:
-        draft = f"""# 고소장
-
-## 1. 고소인
-- **성명**: {name}
-- **연락처**: {phone or "미기재"}
-
-## 2. 피고소인
-- **성명/상호**: {company}
-- **주소**: {address or "미기재"}
-
-## 3. 고소 사실
-{situation}와 관련하여 아래와 같은 범죄 사실이 있으므로, 엄중한 수사와 처벌을 요청합니다.
-
-## 4. 범죄 사실
-{detail}
-
-## 5. 증거 방법
-- [ ] 관련 서류 일체
-- [ ] 녹음 파일 (해당 시)
-- [ ] 사진/영상 자료
-- [ ] 목격자 연락처
-- [ ] 진단서 (해당 시)
-
-## 6. 형사처벌 조항
-- **{situation}** 관련 법률 위반
-- 소멸시효 확인 필요
-
----
-
-위와 같이 고소장을 제출합니다.
-
-{today}
-**고소인**: {name} (서명/인)
-
-{difficulty_note}"""
+        draft = TEMPLATE_CRIMINAL.substitute(**subs)
 
     else:  # 내용증명
-        amount_line = f"3. 금 {amount}원을 ...까지 지급하십시오." if amount else ""
-        draft = f"""# 내용증명
-
-## 발신인
-- **성명**: {name}
-- **연락처**: {phone or "미기재"}
-- **주소**: [주소 입력]
-
-## 수신인
-- **성명/상호**: {company}
-- **주소**: {address or "미기재"}
-
-## 제목: {situation} 관련 시정 요구 및 손해배상 청구의 건
-
-## 1. 사실 관계
-{detail}
-
-## 2. 요구 사항
-1. 위 사실과 관련된 법적 위반 사항을 시정하십시오.
-2. 이로 인한 손해를 배상하십시오.
-{amount_line}
-
-## 3. 법적 근거
-근로기준법 및 관련 노동관계법에 따라 위 요구를 이행하지 않을 경우,
-관할 고용노동청 진정 및 민사소송 등 법적 조치를 취할 예정입니다.
-
-## 4. 발송일
-{today}
-
----
-
-**{name}** (서명/인)
-
-{difficulty_note}"""
+        subs["amount_line"] = f"3. 금 {amount}원을 ...까지 지급하십시오." if amount else ""
+        draft = TEMPLATE_CERTIFIED.substitute(**subs)
 
     with st.container(border=True):
         st.markdown("### 📄 생성된 초안")
