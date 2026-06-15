@@ -11,9 +11,9 @@ data/raw/의 원본 파일(PDF, MD)을 읽어 data/process/에 JSON으로 저장
     preprocess_case.py → data/raw/case/**/*.md → data/process/case/**/*.json
     preprocess_law.py → data/raw/law/*.pdf → data/process/law/**/*.json
 """
-from preprocess.preprocess_qna import run_qna
-from preprocess.preprocess_case import run_case
-from preprocess.preprocess_law import run_law
+from backend.preprocess.preprocess_qna import run_qna
+from backend.preprocess.preprocess_case import run
+from backend.preprocess.preprocess_law import run_law
 
 
 # 프로젝트 루트 기준 경로
@@ -35,5 +35,5 @@ CONFIG = {
 
 if __name__ == "__main__":
     run_qna(**CONFIG["qna"])
-    run_case(**CONFIG["case"])
+    run()
     run_law(**CONFIG["law"])
