@@ -1,90 +1,111 @@
 """
 서류 작성 도우미 페이지
 """
-from datetime import datetime
+
+from pathlib import Path
+import json
 import streamlit as st
 
-from frontend.pages.docwriter_data import (
-    TEMPLATE_COMPLAINT,
-    TEMPLATE_CRIMINAL,
-    TEMPLATE_CERTIFIED,
-    LAW_REFS,
-)
+
+FORMS_DIR = Path(__file__).resolve().parent.parent / "constants" / "forms"
 
 
-def _generate_draft(doc_type, name, phone, company, address, situation, detail, amount):
-    """서류 초안 생성"""
-    today = datetime.now().strftime("%Y년 %m월 %d일")
-    difficulty_note = "※ 본 문서는 참고용 초안이며 법적 효력이 없습니다. 발송 전 법률 전문가의 검토를 권장합니다."
+@st.cache_data
+def load_forms():
+    forms = []
+    if not FORMS_DIR.exists():
+        return [], f"서식 디렉토리를 찾을 수 없습니다: {FORMS_DIR}"
 
-    # 공통 치환 변수
-    subs = {
-        "name": name or "미기재",
-        "phone": phone or "미기재",
-        "company": company or "미기재",
-        "address": address or "미기재",
-        "situation": situation,
-        "detail": detail,
-        "today": today,
-        "difficulty_note": difficulty_note,
-    }
+    errors = []
+    for p in sorted(FORMS_DIR.glob("*.json")):
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                forms.append(json.load(f))
+        except Exception as e:
+            errors.append(f"{p.name}: {e}")
 
-    if "진정서" in doc_type:
-        subs["law_ref"] = LAW_REFS.get(situation, "근로기준법 관련 조항")
-        draft = TEMPLATE_COMPLAINT.substitute(**subs)
+    return forms, (errors or None)
 
-    elif "고소장" in doc_type:
-        draft = TEMPLATE_CRIMINAL.substitute(**subs)
 
-    else:  # 내용증명
-        subs["amount_line"] = f"3. 금 {amount}원을 ...까지 지급하십시오." if amount else ""
-        draft = TEMPLATE_CERTIFIED.substitute(**subs)
+def _widget_key(form_id: str, section_id: str, field_key: str) -> str:
+    return f"{form_id}__{section_id}__{field_key}"
 
-    with st.container(border=True):
-        st.markdown("### 📄 생성된 초안")
-        st.text_area("", draft, height=400, key="draft_output")
-        st.download_button(
-            label="📥 텍스트 파일로 다운로드",
-            data=draft.encode("utf-8"),
-            file_name=f"{situation}_{doc_type.split()[0]}_{today.replace(' ', '_')}.txt",
-            mime="text/plain",
-            use_container_width=True,
+
+def _clear_form_inputs(prev_form_id: str) -> None:
+    prefix = f"{prev_form_id}__"
+    for k in list(st.session_state.keys()):
+        if str(k).startswith(prefix):
+            del st.session_state[k]
+
+
+def _render_field(form_id: str, section: dict, field: dict) -> None:
+    section_id = section.get("id", "")
+    field_key = field.get("key", "")
+    key = _widget_key(form_id, section_id, field_key)
+
+    label = field.get("label") or field_key
+    field_type = field.get("type")
+
+    if field_type == "text":
+        st.text_input(label, key=key)
+    elif field_type == "textarea":
+        rows = field.get("rows")
+        height = 150
+        if isinstance(rows, (int, float)):
+            height = max(80, min(420, int(rows) * 20))
+        st.text_area(label, key=key, height=height)
+    elif field_type == "radio":
+        options = field.get("options") or []
+        if len(options) >= 5:
+            st.selectbox(label, options, key=key)
+        else:
+            st.radio(label, options, key=key)
+    elif field_type in ("number", "currency"):
+        st.number_input(label, key=key, step=1)
+    elif field_type == "date":
+        st.date_input(label, key=key)
+    elif field_type == "file":
+        st.file_uploader(
+            label,
+            key=key,
+            accept_multiple_files=bool(field.get("multiple", False)),
         )
+    else:
+        st.text_input(label, key=key)
 
 
 def render_docwriter():
     st.markdown('<p class="main-header">📝 서류 작성 도우미</p>', unsafe_allow_html=True)
-    st.markdown("법적 분쟁 시 필요한 서류의 초안을 작성합니다. 아래 정보를 입력해주세요.")
+    st.markdown("아래에서 서류 유형과 필수 항목을 입력합니다. (초안 생성 기능은 제외됨)")
 
-    doc_type = st.selectbox(
-        "서류 유형 선택",
-        ["진정서 (고용노동청)", "고소장 (경찰청)", "내용증명 (법무법인/등기)"],
-    )
+    forms, load_error = load_forms()
+    if not forms:
+        st.error("서식 데이터를 불러오지 못했습니다.")
+        if load_error:
+            st.write(load_error)
+        return
 
-    with st.container(border=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            name = st.text_input("신청인 이름", placeholder="홍길동")
-            phone = st.text_input("연락처", placeholder="010-1234-5678")
-        with col2:
-            company = st.text_input("상대방 (회사명/개인)", placeholder="(주)회사명")
-            address = st.text_input("상대방 주소", placeholder="서울시 강남구...")
+    form_names = [f.get("form_name") for f in forms if f.get("form_name")]
+    if not form_names:
+        st.error("form_name을 찾을 수 없습니다.")
+        return
 
-    with st.container(border=True):
-        st.markdown("**사건 내용**")
-        situation = st.selectbox(
-            "상황 유형",
-            ["임금체불", "부당해고", "직장 내 괴롭힘", "산업재해", "기타"],
-        )
-        detail = st.text_area(
-            "상세 내용",
-            placeholder="발생 일시, 장소, 구체적인 사실 관계를 상세히 입력해주세요.",
-            height=150,
-        )
-        amount = st.text_input("청구 금액 (해당 시)", placeholder="예: 5,000,000원")
+    form_by_name = {f.get("form_name"): f for f in forms}
 
-    if st.button("초안 생성", use_container_width=True, type="primary"):
-        if not name or not company or not detail:
-            st.warning("⚠️ 신청인 이름, 상대방, 사건 내용은 필수입니다.")
-        else:
-            _generate_draft(doc_type, name, phone, company, address, situation, detail, amount)
+    selected_name = st.selectbox("서류 유형 선택", form_names)
+    selected_form = form_by_name[selected_name]
+    form_id = selected_form.get("form_id")
+    sections = selected_form.get("sections") or []
+
+    if "current_form_id" not in st.session_state:
+        st.session_state.current_form_id = form_id
+
+    if st.session_state.current_form_id != form_id:
+        _clear_form_inputs(st.session_state.current_form_id)
+        st.session_state.current_form_id = form_id
+
+    for section in sections:
+        title = section.get("title") or ""
+        st.markdown(f"### {title}")
+        for field in section.get("fields") or []:
+            _render_field(form_id, section, field)
