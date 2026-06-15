@@ -228,33 +228,33 @@ def render_calculator():
         if "calc_chat_messages" not in st.session_state:
             st.session_state.calc_chat_messages = []
 
-        # 채팅 메시지 히스토리 표시
+        # 채팅 메시지 히스토리 표시 (먼저 표시 — 입력창은 항상 메시지 아래)
         for msg in st.session_state.calc_chat_messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        # 채팅 입력
+        # 채팅 입력 처리 (메시지 아래에 위치)
         if prompt := st.chat_input("자연어로 계산을 입력하세요 (예: 퇴직금 계산해줘, 3년 근무, 월 300만원)"):
-            # 사용자 메시지 추가 및 표시
+            # 사용자 메시지 추가
             st.session_state.calc_chat_messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
 
             # 어시스턴트 응답 생성
-            with st.chat_message("assistant"):
-                with st.spinner("🧮 계산 중..."):
-                    try:
-                        engine = getattr(st.session_state, "_calc_engine", None)
-                        if engine is None:
-                            engine = CalculatorEngine()
-                            st.session_state._calc_engine = engine
+            with st.spinner("🧮 계산 중..."):
+                try:
+                    engine = getattr(st.session_state, "_calc_engine", None)
+                    if engine is None:
+                        assert CALC_AVAILABLE  # guard above ensures this
+                        engine = CalculatorEngine()  # type: ignore[name-defined]
+                        st.session_state._calc_engine = engine
 
-                        result = engine.calculate(prompt)
-                        answer = result.get("answer", "결과를 생성하지 못했습니다.")
-                        st.markdown(answer)
-                        st.session_state.calc_chat_messages.append({"role": "assistant", "content": answer})
+                    # 모든 대화 기록을 컨텍스트로 전달
+                    result = engine.calculate(
+                        prompt,
+                        conversation_history=st.session_state.calc_chat_messages[:-1],
+                    )
+                    answer = result.get("answer", "결과를 생성하지 못했습니다.")
+                except Exception as e:
+                    answer = f"계산 중 오류가 발생했습니다: {e}"
 
-                    except Exception as e:
-                        err_msg = f"계산 중 오류가 발생했습니다: {e}"
-                        st.error(err_msg)
-                        st.session_state.calc_chat_messages.append({"role": "assistant", "content": err_msg})
+            st.session_state.calc_chat_messages.append({"role": "assistant", "content": answer})
+            st.rerun()
