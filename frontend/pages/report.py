@@ -2,7 +2,7 @@
 신고/접수 경로 페이지
 """
 import streamlit as st
-from frontend.data import REPORT_CHANNELS, DEADLINE_INFO
+from frontend.pages.report.data import REPORT_CHANNELS, DEADLINE_INFO
 
 
 def render_report():

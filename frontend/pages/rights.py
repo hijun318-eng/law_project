@@ -2,7 +2,7 @@
 상황별 권리 안내 페이지
 """
 import streamlit as st
-from frontend.data import RIGHTS_CASES
+from frontend.pages.rights.data import RIGHTS_CASES
 
 
 def render_rights():

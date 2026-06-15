@@ -2,7 +2,7 @@
 증거 관리 가이드 페이지
 """
 import streamlit as st
-from frontend.data import EVIDENCE_GUIDE
+from frontend.pages.evidence.data import EVIDENCE_GUIDE
 
 
 def render_evidence():
