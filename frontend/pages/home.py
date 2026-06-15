@@ -4,6 +4,11 @@
 import streamlit as st
 from frontend.config import RAG_AVAILABLE
 
+try:
+    from backend.router_engine import router_engine
+except Exception:
+    router_engine = None
+
 
 def render_home():
     st.markdown('<p class="main-header">🏠 노동 법률 AI 어시스턴트</p>', unsafe_allow_html=True)
@@ -11,6 +16,35 @@ def render_home():
         '<p class="sub-header">근로기준법 · 노동관계법 관련 모든 정보를 한 곳에서 확인하세요.</p>',
         unsafe_allow_html=True,
     )
+
+    st.divider()
+    st.subheader("🔎 홈 검색")
+    colA, colB = st.columns([5, 1])
+    with colA:
+        query = st.text_input(
+            "질문을 입력하세요",
+            placeholder="예: 해고가 부당한지 알려줘 / 임금체불 절차 알려줘 / 주휴수당 계산해줘",
+        )
+    with colB:
+        clicked = st.button("검색", use_container_width=True, type="primary")
+
+    if clicked and query and router_engine is not None:
+        with st.spinner("분석 중... "):
+            try:
+                result = router_engine.run(query.strip())
+                st.divider()
+                if result.mode == "case_based_answer":
+                    st.markdown("### 💡 최종 답변")
+                elif result.mode == "procedure_guidance":
+                    st.markdown("### 📋 대응 절차")
+                else:
+                    st.markdown("### 🧮 계산 결과")
+                st.markdown(result.content)
+            except Exception as e:
+                st.error(f"라우터 실행 오류: {e}")
+
+    if clicked and query and router_engine is None:
+        st.warning("라우터 엔진을 불러올 수 없습니다. 백엔드 구성을 확인해주세요.")
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
