@@ -31,7 +31,7 @@ def render_latestNews():
     with col1:
         query = st.text_input(
             "검색어",
-            value="노동법 개정 시행",
+            value="최저임금",
             placeholder="예: 중대재해처벌법 판결, 최저임금 2026",
             label_visibility="collapsed",
         )
@@ -84,7 +84,7 @@ def render_latestNews():
             st.link_button("기사 보기 →", item.get("link", "#"))
 
     # ─────────────────────────────────────────────
-    # AI 요약 (placeholder에 비동기로 채움)
+    # AI 요약
     # ─────────────────────────────────────────────
     engine = st.session_state.get("news_engine")
 

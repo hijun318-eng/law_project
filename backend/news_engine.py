@@ -1,64 +1,80 @@
-# backend/news_engine.py 
 import json
 import logging
+import re
+
 from backend.tools.registry import registry
 from backend.utils.prompt_loader import load_prompt
-from backend.news.news_normalizer import normalize_news
+
+from backend.news.constants import MAX_STEPS, MAX_TOOL_RETRY
+from backend.news.news_parser import parse_action
+from backend.news.news_rewriter import NewsQueryRewriter
+from backend.news.news_executor import NewsExecutor
+from backend.news.news_message_builder import (
+    build_initial_messages,
+    build_observation_message,
+)
 
 logger = logging.getLogger(__name__)
 
-MAX_STEPS      = 5
-MAX_TOOL_RETRY = 2  # 동일 tool 연속 허용 횟수
 
 class NewsEngine:
     def __init__(self, llm):
-        self.llm    = llm
+        self.llm = llm
         self.prompt = load_prompt("news_prompt.md")
+        self.rewriter = NewsQueryRewriter(llm)
+        self.executor = NewsExecutor()
 
     def answer(self, question: str) -> dict:
-        tool_specs = json.dumps(registry.list_specs(), ensure_ascii=False, indent=2)
-        messages = [
-            {"role": "system", "content": self.prompt.replace("{tool_specs}", tool_specs)},
-            {"role": "user",   "content": question},
-        ]
+        rewritten_question = self.rewriter.rewrite(question)
+        logger.info(f"[USER QUESTION] {question} -> {rewritten_question}")
 
-        steps: list[dict]  = []
+        tool_specs = json.dumps(registry.list_specs(), ensure_ascii=False, indent=2)
+        prompt = self.prompt.replace("{tool_specs}", tool_specs)
+
+        messages = build_initial_messages(
+            prompt,
+            question,
+            rewritten_question,
+        )
+
+        steps: list[dict] = []
         action_history: list[str] = []
-        valid_tools = registry.list_tools()
+        valid_tools = self.executor.valid_tools()
 
         for step in range(MAX_STEPS):
             res  = self.llm.invoke(messages)
             text = res.content.strip()
             messages.append({"role": "assistant", "content": text})
-            logger.debug(f"[Step {step}] LLM output:\n{text}")
 
-            # ── Final Answer ──────────────────────────────────
+            has_action = "Action:" in text
+            
+            has_final_answer = bool(
+                re.search(r"(^|\n)\s*##\s+", text)
+            )
             if "Final Answer:" in text:
-                if not steps: 
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            "검색을 먼저 수행해야 합니다. "
-                            "Final Answer 전에 반드시 news_search tool을 호출하세요. "
-                            "사용자 질문에서 키워드를 2~3가지로 확장하여 검색하세요."
-                        ),
-                    })
-                    continue
-                
-                final = text.split("Final Answer:", 1)[-1].strip()
-                logger.info(f"Final Answer reached at step {step}")
-                return {"answer": final, "steps": steps}
+                has_final_answer = True
+            
+            if has_action and text.find("## ") > -1:
+                text = text[:text.find("## ")]
 
-            # ── Action 파싱 ───────────────────────────────────
-            action = self._parse_action(text)
+            if has_final_answer and not has_action:
+                if "Final Answer:" in text:
+                    final = text.split("Final Answer:", 1)[-1].strip()
+                else:
+                    final = text.strip()
+                return {
+                    "answer": final,
+                    "steps": steps
+                }
+
+            action = parse_action(text)
             if not action:
-                logger.warning(f"[Step {step}] No valid Action found.")
                 messages.append({
                     "role": "user",
                     "content": (
                         "Action이 감지되지 않았습니다. "
-                        "반드시 아래 형식으로 작성하세요:\n"
-                        'Action: {"tool": "news_search", "args": {"query": "검색어"}}'
+                        "반드시 아래 형식으로 한 줄만 출력하세요:\n"
+                        f'Action: {{"tool": "news_search", "args": {{"query": "{rewritten_question}"}}}}'
                     ),
                 })
                 continue
@@ -66,7 +82,9 @@ class NewsEngine:
             tool = action.get("tool")
             args = action.get("args", {})
 
-            # ── Tool 유효성 검사 ──────────────────────────────
+            if step == 0 and tool == "news_search":
+                args["query"] = rewritten_question
+
             if tool not in valid_tools:
                 messages.append({
                     "role": "user",
@@ -74,37 +92,25 @@ class NewsEngine:
                 })
                 continue
 
-            # ── Loop detection (이력 기반) ────────────────────
-            action_key = json.dumps(action, sort_keys=True, ensure_ascii=False)
+            action_key = json.dumps({"tool": tool, "args": args}, sort_keys=True, ensure_ascii=False)
             recent = action_history[-MAX_TOOL_RETRY:]
             if len(recent) == MAX_TOOL_RETRY and all(k == action_key for k in recent):
-                logger.warning("Tool loop detected. Stopping.")
                 return {
-                    "answer": "동일한 검색이 반복되어 답변을 제공할 수 없습니다. 질문을 구체적으로 바꿔주세요.",
+                    "answer":  "동일한 검색이 반복되어 답변을 제공할 수 없습니다. 질문을 구체적으로 바꿔주세요.",
                     "steps":   steps,
                     "warning": True,
                 }
             action_history.append(action_key)
 
-            # ── Tool 실행 ─────────────────────────────────────
-            result = registry.run(tool, **args)
+            obs = self.executor.execute(tool, args)
 
-            if not result.success:
-                obs = {"error": result.error, "evidence": []}
-                logger.error(f"Tool '{tool}' failed: {result.error}")
-            else:
-                if tool == "news_search":
-                    obs = normalize_news(
-                        args.get("query", ""),
-                        result.data["results"],
-                        top_k=5,
-                    )
-                else:
-                    obs = result.data
+            steps.append({
+                "step":            step,
+                "action":          action,
+                "rewritten_query": args.get("query"),
+                "observation":     obs,
+            })
 
-            steps.append({"step": step, "action": action, "observation": obs})
-
-            # ── Observation 주입 ──────────────────────────────
             evidence_list = obs.get("evidence", []) if isinstance(obs, dict) else []
 
             if not evidence_list:
@@ -120,43 +126,12 @@ class NewsEngine:
                     "Final Answer 대신 다른 쿼리로 재검색하세요."
                 )
 
-            messages.append({
-                "role": "user",
-                "content": json.dumps(
-                    {"rule": rule, "evidence": obs},
-                    ensure_ascii=False,
-                ),
-            })
+            messages.append(
+                build_observation_message(obs, rule,)
+            )
 
-        logger.warning("MAX_STEPS reached without Final Answer.")
-        return {"answer": "분석 한도를 초과했습니다. 질문을 더 구체적으로 입력해주세요.", "steps": steps, "warning": True}
-
-    def _parse_action(self, text: str) -> dict | None:
-        if "Action:" not in text:
-            return None
-        try:
-            part  = text.split("Action:", 1)[1]
-            start = part.find("{")
-            if start == -1:
-                return None
-
-            depth = 0
-            end   = -1
-            for i, ch in enumerate(part[start:], start):
-                if ch == "{":
-                    depth += 1
-                elif ch == "}":
-                    depth -= 1
-                    if depth == 0:
-                        end = i
-                        break
-
-            if end == -1:
-                return None
-
-            raw = part[start:end + 1].replace("\n", " ").replace("  ", " ")
-            return json.loads(raw)
-
-        except (json.JSONDecodeError, Exception) as e:
-            logger.warning(f"Action parse failed: {e}")
-            return None
+        return {
+            "answer":  "질문을 더 구체적으로 입력해주세요.",
+            "steps":   steps,
+            "warning": True,
+        }

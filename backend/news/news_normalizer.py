@@ -12,15 +12,14 @@ def _score(query: str, item: dict) -> float:
 
     keyword_score = sum(1 for kw in keywords if kw.lower() in text) / max(len(keywords), 1)
 
-    # 최신성: 오늘 기준 일수 차이
     try:
         pub = datetime.strptime(item["pubDate"], "%a, %d %b %Y %H:%M:%S %z")
         days_old = (datetime.now(timezone.utc) - pub).days
-        recency_score = max(0.0, 1.0 - days_old / 30)
+        recency_score = max(0.0, 1.0 - days_old / 365)
     except Exception:
         recency_score = 0.0
 
-    return round(keyword_score * 0.7 + recency_score * 0.3, 4)
+    return round(keyword_score * 0.5 + recency_score * 0.5, 4)
 
 def normalize_news(query: str, items: list[dict], top_k: int = 5) -> dict:
     scored = [
@@ -28,6 +27,10 @@ def normalize_news(query: str, items: list[dict], top_k: int = 5) -> dict:
         for item in items
     ]
     scored.sort(key=lambda x: x["_score"], reverse=True)
+    scored = [
+        s for s in scored
+        if s["_score"] >= 0.4
+    ]
     top = scored[:top_k]
 
     return {
