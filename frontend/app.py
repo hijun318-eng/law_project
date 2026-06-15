@@ -2,7 +2,8 @@
 frontend/app.py — 애플리케이션 메인 라우터
 """
 import streamlit as st
-from frontend.config import init_session, load_css
+from frontend.config import init_session, APP_NAME
+from frontend.theme import load_css
 from frontend.sidebar import render_sidebar
 from frontend.pages.home import render_home
 from frontend.pages.qa import render_qa
@@ -23,29 +24,22 @@ def main():
     # 사이드바 렌더링
     render_sidebar()
 
-    # 페이지 라우팅
-    page = st.session_state.page
+    # 페이지 레지스트리 (if-elif 대신 dict lookup)
+    PAGE_REGISTRY = {
+        "home": render_home,
+        "qa": render_qa,
+        "rights": render_rights,
+        "report": render_report,
+        "evidence": render_evidence,
+        "calculator": render_calculator,
+        "docwriter": render_docwriter,
+        "contract": render_contract,
+        "latestNews": render_latestNews,
+    }
 
-    if page == "home":
-        render_home()
-    elif page == "qa":
-        render_qa()
-    elif page == "rights":
-        render_rights()
-    elif page == "report":
-        render_report()
-    elif page == "evidence":
-        render_evidence()
-    elif page == "calculator":
-        render_calculator()
-    elif page == "docwriter":
-        render_docwriter()
-    elif page == "contract":
-        render_contract()
-    elif page == "latestNews":
-        render_latestNews()
-    else:
-        render_home()
+    page = st.session_state.page
+    render_fn = PAGE_REGISTRY.get(page, render_home)
+    render_fn()
 
     # 푸터
     st.markdown(

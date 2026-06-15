@@ -2,7 +2,7 @@
 수당 계산기 페이지
 """
 import streamlit as st
-from frontend.config import C_SUCCESS, C_WARNING
+from frontend.theme import C_SUCCESS, C_WARNING
 from backend.calculator.core import (
     calc_retirement_pay,
     calc_annual_leave_pay,
@@ -115,13 +115,15 @@ def _calc_weekly():
     with col2:
         weekly_hours = st.number_input("1주 소정근로시간", min_value=0, max_value=40, value=40, step=1)
 
-    _wk_result = calc_weekly_allowance(hourly_wage, weekly_hours)  # 미리 계산
+    if st.button("주휴수당 계산", use_container_width=True, type="primary"):
+        _wk_result = calc_weekly_allowance(hourly_wage, weekly_hours)
 
-    if _wk_result["success"]:
-        weekly_allowance = _wk_result["weekly_allowance"]
-        monthly_allowance = _wk_result["monthly_allowance"]
+        if not _wk_result["success"]:
+            st.warning("⚠️ 1주 소정근로시간이 15시간 미만인 근로자는 주휴수당 지급 대상이 아닙니다.")
+        else:
+            weekly_allowance = _wk_result["weekly_allowance"]
+            monthly_allowance = _wk_result["monthly_allowance"]
 
-        if st.button("주휴수당 계산", use_container_width=True, type="primary"):
             st.markdown(f'<div class="calc-result">💰 주휴수당: 주 {weekly_allowance:,.0f}원</div>', unsafe_allow_html=True)
             st.markdown(f"""
             **계산 상세:**
@@ -135,8 +137,6 @@ def _calc_weekly():
             - 주 15시간 미만 근로자는 주휴수당 지급 대상이 아닙니다.
             - 주휴수당은 소정근로일을 개근해야 지급됩니다.
             """)
-    else:
-        st.warning("⚠️ 1주 소정근로시간이 15시간 미만인 근로자는 주휴수당 지급 대상이 아닙니다.")
 
 
 def _calc_min_wage():

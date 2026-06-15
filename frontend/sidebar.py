@@ -2,7 +2,9 @@
 사이드바 렌더링
 """
 import streamlit as st
-from frontend.config import APP_NAME, APP_SUBTITLE, C_PRIMARY, C_ACCENT, PAGES, RAG_AVAILABLE
+from frontend.config import APP_NAME, APP_SUBTITLE, RAG_AVAILABLE
+from frontend.theme import C_PRIMARY, C_ACCENT
+from frontend.menu import PAGES
 
 
 def render_sidebar():
