@@ -108,5 +108,46 @@ def load_css():
             padding: 1rem;
             border-top: 1px solid #eee;
         }}
+        /* ── 근로계약서 분석 전용 ── */
+        [data-testid="stFileUploader"] {{
+            border: 2px dashed #CBD5E1;
+            border-radius: 12px;
+            padding: 8px;
+            background: {C_BG_LIGHT};
+            transition: border-color .2s;
+        }}
+        [data-testid="stFileUploader"]:hover {{
+            border-color: {C_ACCENT};
+        }}
+        .result-card {{
+            background: {C_CARD_BG};
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 12px;
+        }}
+        .result-card.fail {{ border-left: 4px solid #EF4444; }}
+        .result-card.pass {{ border-left: 4px solid #22C55E; }}
+        .result-card.warn {{ border-left: 4px solid {C_WARNING}; }}
+        .section-title {{
+            font-size: 13px;
+            font-weight: 700;
+            color: #64748B;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            margin: 28px 0 12px;
+        }}
+        .field-row {{
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 7px 0;
+            border-bottom: 1px solid #F1F5F9;
+            font-size: 14px;
+        }}
+        .field-row:last-child {{ border-bottom: none; }}
+        .field-name  {{ color: #475569; font-weight: 500; min-width: 110px; }}
+        .field-value {{ color: #0F172A; text-align: right; }}
+        .field-empty {{ color: #CBD5E1; font-style: italic; }}
     </style>
     """, unsafe_allow_html=True)
