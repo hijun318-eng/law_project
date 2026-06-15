@@ -61,8 +61,6 @@ def render_contract():
     st.markdown('<p class="main-header">🔎 근로계약서 독소조항 분석</p>', unsafe_allow_html=True)
     st.markdown("근로계약서 내용을 입력하거나 붙여넣으면 불리한 조항(독소조항)을 분석하여 설명해드립니다.")
 
-    mode = st.session_state.get("mode", "easy")
-
     tab1, tab2 = st.tabs(["📄 계약서 분석", "📚 독소조항 사전"])
 
     with tab1:
@@ -87,10 +85,7 @@ def render_contract():
                     for issue in found_issues:
                         with st.container(border=True):
                             st.markdown(f"#### {issue['pattern']}  🟠{issue['danger']}")
-                            if mode == "easy":
-                                st.markdown(f"**📌 설명:** {issue['explain_easy']}")
-                            else:
-                                st.markdown(f"**📌 법적 분석:** {issue['explain_expert']}")
+                            st.markdown(f"**📌 설명:** {issue['explain_easy']}")
                 else:
                     st.success("✅ 입력된 내용에서 일반적인 독소조항이 발견되지 않았습니다. 다만, 전문가의 추가 검토를 권장합니다.")
 
@@ -115,7 +110,4 @@ def render_contract():
 
         for clause in CLAUSE_DB:
             with st.expander(f"{clause['pattern']} ({clause['danger']})"):
-                if mode == "easy":
-                    st.markdown(clause["explain_easy"])
-                else:
-                    st.markdown(clause["explain_expert"])
+                st.markdown(clause["explain_easy"])
