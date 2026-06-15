@@ -4,6 +4,8 @@
 import traceback
 import streamlit as st
 
+from frontend.pages.qa_data import FAQS
+
 
 def _fallback_answer(question: str) -> str:
     """RAG 엔진 없을 때 기본 응답"""
@@ -174,15 +176,7 @@ def render_qa():
 
     if not st.session_state.qa_messages:
         st.markdown("### 💡 자주 묻는 질문")
-        faqs = [
-            "해고 통보는 언제 해야 하나요?",
-            "야근 수당은 어떻게 계산하나요?",
-            "연차 휴가는 며칠인가요?",
-            "임금 체불 시 어떻게 해야 하나요?",
-            "주 52시간 근무제란 무엇인가요?",
-            "육아휴직 기간과 급여는?",
-        ]
         cols = st.columns(2)
-        for i, q in enumerate(faqs):
+        for i, q in enumerate(FAQS):
             if cols[i % 2].button(q, use_container_width=True, key=f"faq_{i}"):
                 _qa_answer(q)
