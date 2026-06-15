@@ -45,6 +45,7 @@ PAGES = {
     "calculator":   {"icon": "🧮",   "label": "수당 계산기",       "group": "부가 기능"},
     "docwriter":    {"icon": "📝",   "label": "서류 작성 도우미",  "group": "부가 기능"},
     "contract":     {"icon": "🔎",   "label": "근로계약서 분석",   "group": "부가 기능"},
+    "latestNews":     {"icon": "📰",   "label": "최신 뉴스",   "group": "부가 기능"},
 }
 
 
@@ -65,7 +66,13 @@ def init_session():
             st.session_state.engine = RAGEngine() if RAG_AVAILABLE else None
         except Exception as e:
             st.session_state.engine = None
-
+    if "news_engine" not in st.session_state:
+        try:
+            from backend.news_engine import NewsEngine
+            from backend.config import llm
+            st.session_state.news_engine = NewsEngine(llm)
+        except Exception:
+            st.session_state.news_engine = None
 
 # ============================================================
 # CSS 스타일

@@ -1,3 +1,4 @@
+# backend/news_engine.py 
 import json
 import logging
 from backend.tools.registry import registry
@@ -24,17 +25,26 @@ class NewsEngine:
         steps: list[dict]  = []
         action_history: list[str] = []
         valid_tools = registry.list_tools()
-        last_text = ""
 
         for step in range(MAX_STEPS):
             res  = self.llm.invoke(messages)
             text = res.content.strip()
-            last_text = text
             messages.append({"role": "assistant", "content": text})
             logger.debug(f"[Step {step}] LLM output:\n{text}")
 
             # ── Final Answer ──────────────────────────────────
             if "Final Answer:" in text:
+                if not steps: 
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "검색을 먼저 수행해야 합니다. "
+                            "Final Answer 전에 반드시 news_search tool을 호출하세요. "
+                            "사용자 질문에서 키워드를 2~3가지로 확장하여 검색하세요."
+                        ),
+                    })
+                    continue
+                
                 final = text.split("Final Answer:", 1)[-1].strip()
                 logger.info(f"Final Answer reached at step {step}")
                 return {"answer": final, "steps": steps}
@@ -95,13 +105,25 @@ class NewsEngine:
             steps.append({"step": step, "action": action, "observation": obs})
 
             # ── Observation 주입 ──────────────────────────────
+            evidence_list = obs.get("evidence", []) if isinstance(obs, dict) else []
+
+            if not evidence_list:
+                rule = (
+                    "검색 결과가 없습니다. "
+                    "다른 키워드나 법령명으로 반드시 재검색하세요. "
+                    "포기하지 말고 유사어로 시도하세요."
+                )
+            else:
+                rule = (
+                    "evidence 외 정보 사용 금지. "
+                    "evidence가 질문을 충분히 커버하지 못하면 "
+                    "Final Answer 대신 다른 쿼리로 재검색하세요."
+                )
+
             messages.append({
                 "role": "user",
                 "content": json.dumps(
-                    {
-                        "rule":     "evidence 외 정보 사용 금지. 기사에 없으면 '근거 부족'으로 답변.",
-                        "evidence": obs,
-                    },
+                    {"rule": rule, "evidence": obs},
                     ensure_ascii=False,
                 ),
             })

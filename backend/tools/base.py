@@ -14,6 +14,12 @@ class BaseTool(ABC):
     name: str = ""
     description: str = ""
     input_schema: dict = {}
+    
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # 서브클래스가 input_schema를 정의하지 않으면 독립 복사본 부여
+        if "input_schema" not in cls.__dict__:
+            cls.input_schema = {}
 
     def run(self, **kwargs) -> ToolResult:
         try:

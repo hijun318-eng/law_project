@@ -12,6 +12,7 @@ from frontend.pages.evidence import render_evidence
 from frontend.pages.calculator import render_calculator
 from frontend.pages.docwriter import render_docwriter
 from frontend.pages.contract import render_contract
+from frontend.pages.latestNews import render_latestNews
 
 
 def main():
@@ -41,6 +42,8 @@ def main():
         render_docwriter()
     elif page == "contract":
         render_contract()
+    elif page == "latestNews":
+        render_latestNews()
     else:
         render_home()
 

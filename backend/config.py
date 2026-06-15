@@ -11,11 +11,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 llm = ChatOpenAI(
     model="gpt-5.4-nano",
-    temperature=0,
-    api_key=OPENAI_API_KEY
+    temperature=0
 )
 
 embedding = OpenAIEmbeddings(
-    model="text-embedding-3-small",
-    api_key=OPENAI_API_KEY
+    model="text-embedding-3-small"
 )
