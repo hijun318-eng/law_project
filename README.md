@@ -44,11 +44,9 @@ law_project/
 │   ├── nodes/                 # ★ LangGraph 노드 함수 모듈
 │   │   ├── __init__.py        #   노드 일괄 export
 │   │   ├── graph_state.py     #   GraphState (TypedDict) 정의
-│   │   ├── retrieval.py       #   검색 노드 3개
+│   │   ├── retrieval.py       #   검색 노드 2개
 │   │   │   ├─ retrieve_precedent_node()       # 판례 직접 검색
-│   │   │   ├─ retrieve_law_node()             # 법령 검색
-│   │   │   └─ retrieve_precedent_by_law_node() # 법령 기반 판례 검색
-│   │   ├── merge.py           #   merge_node() — 판례 중복 제거 + llm_brief 합산
+│   │   │   └─ retrieve_law_node()             # 법령 검색
 │   │   └── generation.py      #   생성 노드 2개
 │   │       ├─ generate_answer_node()  # LLM 답변 생성
 │   │       └─ procedure_guide_node()  # 절차 안내 생성
@@ -118,7 +116,7 @@ law_project/
 
 ## LangGraph RAG 파이프라인
 
-`backend/nodes/`에 정의된 6개 노드를 `backend/graph.py`에서 3가지 그래프 변형으로 조합합니다.
+`backend/nodes/`에 정의된 4개 노드를 `backend/graph.py`에서 3가지 그래프 변형으로 조합합니다.
 
 ### GraphState (상태 구조)
 
@@ -131,7 +129,6 @@ class GraphState(TypedDict):
     law_analysis: list                  # 법령 분석 결과 (law_name, article_no, score 등)
     law_source: str                     # 법령 검색 출처
     law_confidence: float               # 법령 검색 신뢰도
-    precedent_docs_law: list            # 법령 기반 판례 검색 결과
     precedent_docs: list                # 병합된 최종 판례 목록
     precedent_analysis: str             # 판례 분석 텍스트
     final_answer: str                   # 최종 LLM 답변
