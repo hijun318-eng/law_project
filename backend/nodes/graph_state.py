@@ -12,7 +12,6 @@ class GraphState(TypedDict):
     law_analysis: list
     law_source: str
     law_confidence: float
-    precedent_docs_law: list
     precedent_docs: list
     precedent_analysis: str
     final_answer: str
