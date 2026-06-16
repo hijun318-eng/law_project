@@ -6,12 +6,6 @@ data/process/case/*.json
 search / brief 생성
     ↓
 data/cache/sac/*.json
-
-실행:
-    python -m preprocess.preprocess_sac
-
-강제 재생성:
-    python -m preprocess.preprocess_sac --force
 """
 
 import argparse
@@ -26,7 +20,7 @@ SOURCE_ROOT = Path("data/process/case")
 CACHE_ROOT = Path("data/cache/sac")
 
 
-def run(force: bool = False):
+def run_sac(force: bool = False):
 
     if not SOURCE_ROOT.exists():
         raise FileNotFoundError(
@@ -169,6 +163,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    run(
+    run_sac(
         force=args.force
     )
