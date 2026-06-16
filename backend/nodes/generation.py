@@ -8,19 +8,19 @@ from backend.nodes.graph_state import GraphState
 
 
 # ==========================================================
-# NODE 5: LLM 답변
+# NODE 3: LLM 답변
 # ==========================================================
 def generate_answer_node(state: GraphState) -> dict:
     return answer_service.generate(
         law_analysis=state["law_analysis"],
-        precedent_analysis=state["precedent_analysis"],
+        precedent_docs=state["precedent_context_docs"],
         question=state["question"],
         law_source=state.get("law_source", "unknown"),
     )
 
 
 # ==========================================================
-# NODE 6: 절차 안내
+# NODE 4: 절차 안내
 # ==========================================================
 def procedure_guide_node(state: GraphState) -> dict:
     try:

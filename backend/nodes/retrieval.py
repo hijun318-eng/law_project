@@ -63,12 +63,8 @@ def retrieve_precedent_node(state: GraphState) -> dict:
     
     return {
         "precedent_docs_direct": unique[:5],
-        "ref_articles_from_precedent": ref_articles_from_precedent,
         "precedent_analysis": precedent_analysis,
-        "used_precedents": [
-            Path(doc.metadata.get("source_file", "")).stem
-            for doc in unique[:5]
-        ],
+        "precedent_context_docs": unique[:3],
     }
 
 
