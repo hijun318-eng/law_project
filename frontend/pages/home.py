@@ -19,11 +19,13 @@ def render_home():
 
     st.divider()
     st.subheader("🔎 홈 검색")
+    st.markdown("**질문을 입력하세요**")
     colA, colB = st.columns([5, 1])
     with colA:
         query = st.text_input(
             "질문을 입력하세요",
             placeholder="예: 해고가 부당한지 알려줘 / 임금체불 절차 알려줘 / 주휴수당 계산해줘 / 최근 노동법 관련 이슈 찾아줘",
+            label_visibility="collapsed"
         )
     with colB:
         clicked = st.button("검색", use_container_width=True, type="primary")
