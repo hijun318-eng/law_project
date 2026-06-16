@@ -107,10 +107,15 @@ def run(force: bool = False):
                 if items
                 else {}
             )
-
+            
+            category = metadata.get(
+                "category",
+                ""
+            )
             search_text, brief_text = (
                 summary_service.make_dual_summary(
-                    content
+                    content,
+                    category
                 )
             )
 

@@ -16,7 +16,8 @@ class PrecedentSummaryService:
 
     def make_dual_summary(
         self,
-        content: str
+        content: str,
+        category: str = ""
     ) -> tuple[str, str]:
 
         if content in self.cache:
@@ -34,7 +35,8 @@ class PrecedentSummaryService:
             )
 
         prompt = self.prompt_template.format(
-            content=content[:10000]
+            content=content[:30000],
+            category=category
         )
 
         try:

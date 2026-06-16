@@ -1,117 +1,78 @@
-import argparse
+"""
+판례 MD 전처리 모듈
+판례 .md 파일 → JSON 변환
+"""
+
 import json
+import traceback
 from pathlib import Path
 
-from backend.services.precedent_summary_service import (
-    summary_service
-)
 
-SOURCE_ROOT = Path("data/process/case")
-CACHE_ROOT = Path("data/cache/sac")
+def _normalize_category_name(folder_name: str) -> str:
+    if "." in folder_name:
+        return folder_name.split(".", 1)[1].strip()
+    return folder_name.strip()
 
 
-def run(force=False):
+def process_all_mds(
+    input_dir: str = "./data",
+    output_dir: str = "./data/process",
+) -> None:
+    """
+    판례 .md 파일 → JSON 변환.
+    data/**/*.md → data/process/**/*.json
+    process 폴더 내 파일은 건너뜀.
+    """
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
 
-    CACHE_ROOT.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    md_files = [
+        p for p in input_path.rglob("*.md")
+        if "process" not in p.parts
+    ]
 
-    files = sorted(
-        SOURCE_ROOT.rglob("*.json")
-    )
+    print(f"총 {len(md_files)}개 MD 발견")
 
-    print(f"{len(files)}개 판례 발견")
-
-    for idx, json_file in enumerate(files, 1):
-
-        case_no = json_file.stem
-
-        cache_file = (
-            CACHE_ROOT /
-            f"{case_no}.json"
-        )
-
-        if cache_file.exists() and not force:
-            print(
-                f"[{idx}] SKIP {case_no}"
-            )
-            continue
-
-        print(
-            f"[{idx}] SAC 생성: {case_no}"
-        )
-
+    for md_file in md_files:
+        print(f"처리 중: {md_file.name}")
         try:
-
-            with open(
-                json_file,
-                encoding="utf-8"
-            ) as f:
-                items = json.load(f)
-
-            if isinstance(items, dict):
-                items = [items]
-
-            content = "\n\n".join(
-                item.get(
-                    "page_content",
-                    ""
-                )
-                for item in items
+            content = md_file.read_text(encoding="utf-8")
+            category = _normalize_category_name(md_file.parent.name)
+            output_file = (
+                output_path
+                / md_file.relative_to(input_path).parent
+                / f"{md_file.stem}.json"
             )
+            output_file.parent.mkdir(parents=True, exist_ok=True)
 
-            metadata = (
-                items[0].get(
-                    "metadata",
-                    {}
-                )
-                if items
-                else {}
-            )
-
-            search_text, brief_text = (
-                summary_service.make_dual_summary(
-                    content
-                )
-            )
-
-            save_data = {
-                "case_no": case_no,
-                "metadata": metadata,
-                "search": search_text,
-                "brief": brief_text
-            }
-
-            with open(
-                cache_file,
-                "w",
-                encoding="utf-8"
-            ) as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(
-                    save_data,
+                    [
+                        {
+                            "page_content": content,
+                            "metadata": {
+                                "source_file": md_file.name,
+                                "category": category,
+                            },
+                        }
+                    ],
                     f,
                     ensure_ascii=False,
-                    indent=2
+                    indent=2,
                 )
+            print(f"  → 저장 완료 ({output_file})")
 
         except Exception as e:
-            print(
-                f"[ERROR] {case_no}: {e}"
-            )
+            print(f"  ⚠ 오류 ({md_file.name}): {e}")
+            traceback.print_exc()
 
-    print("SAC 생성 완료")
+    print("MD 전처리 완료")
 
 
-if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
+# ============================================================
+# Case 실행
+# ============================================================
 
-    parser.add_argument(
-        "--force",
-        action="store_true"
-    )
-
-    args = parser.parse_args()
-
-    run(force=args.force)
+def run_case(input_dir: str, output_dir: str):
+    process_all_mds(input_dir=input_dir, output_dir=output_dir)
