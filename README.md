@@ -107,10 +107,10 @@ law_project/
 | 분야 | 기술 |
 |------|------|
 | **프레임워크** | Python, Streamlit |
-| **LLM** | OpenAI GPT / 로컬 LLM (Qwen2.5) |
+| **LLM** | OpenAI GPT |
 | **RAG** | LangChain, LangGraph |
 | **벡터 DB** | ChromaDB |
-| **임베딩** | text-embedding-3-small / intfloat/multilingual-e5-small |
+| **임베딩** | text-embedding-3-small |
 | **PDF 처리** | PyMuPDF (fitz) |
 | **데이터 수집** | 웹 크롤링 (BeautifulSoup 등) |
 
