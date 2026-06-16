@@ -3,7 +3,7 @@
 """
 PAGES = {
     "home":         {"icon": "🏠",   "label": "홈",              "group": "시작"},
-    "qa":           {"icon": "💬",   "label": "법률 Q&A",         "group": "MVP 기능"},
+    "qa":           {"icon": "💬",   "label": "노동권리 진단",         "group": "MVP 기능"},
     "rights":       {"icon": "🔍",   "label": "상황별 권리 안내",  "group": "MVP 기능"},
     "report":       {"icon": "📞",   "label": "신고/접수 경로",    "group": "MVP 기능"},
     "evidence":     {"icon": "📋",   "label": "증거 관리 가이드",  "group": "MVP 기능"},

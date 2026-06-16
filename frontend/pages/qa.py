@@ -1,5 +1,5 @@
 """
-법률 Q&A 페이지
+노동권리 진단 페이지
 """
 import traceback
 import streamlit as st
@@ -149,7 +149,7 @@ def _qa_answer(question: str):
 
 
 def render_qa():
-    st.markdown('<p class="main-header">💬 법률 Q&A</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">💬 노동권리 진단</p>', unsafe_allow_html=True)
     st.markdown("근로기준법 및 노동관계법에 관한 질문에 AI가 답변합니다.")
 
     engine = st.session_state.get("engine")

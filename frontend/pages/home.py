@@ -49,7 +49,7 @@ def render_home():
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         with st.container(border=True):
-            st.markdown("#### 💬 법률 Q&A")
+            st.markdown("#### 💬 노동권리 진단")
             st.markdown("법률 질문에 대한 답변을 AI가 제공합니다.")
             if st.button("바로가기", key="home_qa", use_container_width=True):
                 st.session_state.page = "qa"
@@ -79,7 +79,7 @@ def render_home():
     st.divider()
     st.markdown("### ⚡ 빠른 상담")
     if RAG_AVAILABLE:
-        st.info("아래 질문을 클릭하면 법률 Q&A 페이지에서 상담을 시작합니다.")
+        st.info("아래 질문을 클릭하면 노동권리 진단 페이지에서 상담을 시작합니다.")
         quick_qs = [
             "해고 통보는 언제 해야 하나요?",
             "야근 수당은 어떻게 계산하나요?",
