@@ -15,8 +15,16 @@ from backend.nodes.graph_state import GraphState
 # NODE 1: 판례 직접 검색
 # ==========================================================
 def retrieve_precedent_node(state: GraphState) -> dict:
-    docs = precedent_db.similarity_search(state["question"], k=8)
+    docs = precedent_db.similarity_search(state["question"], k=10)
 
+    print("\n========== TOP 10 RAW PRECEDENT ==========\n")
+
+    for i, doc in enumerate(docs, 1):
+        print(f"[{i}] {doc.metadata.get('source_file')}")
+        print(f"category: {doc.metadata.get('category')}")
+        print(f"brief: {doc.metadata.get('llm_brief', '')[:200]}")
+        print("-" * 80)
+    
     seen = set()
     unique = []
     for doc in docs:
@@ -39,17 +47,28 @@ def retrieve_precedent_node(state: GraphState) -> dict:
             brief
         )
         for raw_law, raw_article in matches:
-            law_name = normalize_law_name(raw_law)        # 공백 제거
-            article_no = normalize_article_no(raw_article)  # "제2조" 형식 통일
-            article_id = f"{law_name}|{article_no}"       # 구분자 '|' 사용
+            law_name = normalize_law_name(raw_law)        # 
+            article_no = normalize_article_no(raw_article)  
+            article_id = f"{law_name}|{article_no}"       # 
 
             if article_id not in seen_refs:
                 seen_refs.add(article_id)
                 ref_articles_from_precedent.append(article_id)
 
+    precedent_analysis = "\n\n".join(
+        f"[사건번호: {Path(doc.metadata.get('source_file', '')).stem}]\n"
+        f"{doc.metadata.get('llm_brief', '')[:500]}"
+        for doc in unique
+    )
+    
     return {
-        "precedent_docs_direct":       unique,
+        "precedent_docs_direct": unique[:5],
         "ref_articles_from_precedent": ref_articles_from_precedent,
+        "precedent_analysis": precedent_analysis,
+        "used_precedents": [
+            Path(doc.metadata.get("source_file", "")).stem
+            for doc in unique[:5]
+        ],
     }
 
 
@@ -68,7 +87,7 @@ def retrieve_law_node(state: GraphState) -> dict:
             "law_name": d.metadata.get("law_name", ""),
             "article_no": d.metadata.get("article_no", ""),
             "article_title": d.metadata.get("article_title", ""),
-            "page_content": d.page_content[:500],
+            "page_content": d.page_content,
             "score": d.metadata.get("final_score", 0.0),
         }
         for d in law_docs[:5]
@@ -80,33 +99,3 @@ def retrieve_law_node(state: GraphState) -> dict:
         "law_source": law_source,
         "law_confidence": law_confidence,
     }
-
-
-# ==========================================================
-# NODE 3: 법령 기반 판례 검색
-# ==========================================================
-def retrieve_precedent_by_law_node(state: GraphState) -> dict:
-    article_refs = [
-        f"{d['law_name']} {d['article_no']}"
-        for d in state["law_analysis"]
-        if d.get("law_name") and d.get("article_no")
-    ]
-
-    if not article_refs:
-        return {"precedent_docs_law": []}
-
-    search_query = " ".join(article_refs[:3])
-    docs = precedent_db.similarity_search(search_query, k=5)
-
-    seen = set()
-    result = []
-
-    for doc in docs:
-        key = Path(doc.metadata.get("source_file", "")).stem
-
-        if key not in seen:
-            seen.add(key)
-            doc.metadata["source"] = "law_based"
-            result.append(doc)
-
-    return {"precedent_docs_law": result}

@@ -16,7 +16,7 @@ CACHE_ROOT = Path(
 
 
 def build_precedent_db(
-    force: bool = False
+    force: bool = True
 ) -> Chroma:
 
     if not CACHE_ROOT.exists():

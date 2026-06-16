@@ -10,8 +10,6 @@ from backend.nodes import (
     GraphState,
     retrieve_precedent_node,
     retrieve_law_node,
-    retrieve_precedent_by_law_node,
-    merge_node,
     generate_answer_node,
     procedure_guide_node,
 )
@@ -20,40 +18,34 @@ from backend.nodes import (
 def _build_base_graph() -> StateGraph:
     builder = StateGraph(GraphState)
 
-    # 노드 등록 (컴파일 시 StateGraph는 add_edge에서 참조하는 노드가 반드시 존재해야 합니다)
     builder.add_node("retrieve_precedent", retrieve_precedent_node)
     builder.add_node("retrieve_law", retrieve_law_node)
-    builder.add_node("retrieve_precedent_by_law", retrieve_precedent_by_law_node)
-    builder.add_node("merge", merge_node)
     builder.add_node("generate_answer", generate_answer_node)
     builder.add_node("procedure_guide", procedure_guide_node)
 
-    # 엣지 연결 (retrieval -> merge 까지만 공통으로 구성)
+    # 엣지 연결
     builder.set_entry_point("retrieve_precedent")
     builder.add_edge("retrieve_precedent",        "retrieve_law")
-    builder.add_edge("retrieve_law",              "retrieve_precedent_by_law")
-    builder.add_edge("retrieve_precedent_by_law", "merge")
-
     return builder
 
 
 # 기존 호환: 통합 그래프 (generate_answer -> procedure_guide)
 _builder = _build_base_graph()
-_builder.add_edge("merge", "generate_answer")
+_builder.add_edge("retrieve_law", "generate_answer")
 _builder.add_edge("generate_answer", "procedure_guide")
 _builder.add_edge("procedure_guide", END)
 graph = _builder.compile()
 
 
-# answer-only 그래프: merge -> generate_answer -> END
+# answer-only 그래프: retrieve_law -> generate_answer -> END
 _builder_answer = _build_base_graph()
-_builder_answer.add_edge("merge", "generate_answer")
+_builder_answer.add_edge("retrieve_law", "generate_answer")
 _builder_answer.add_edge("generate_answer", END)
 graph_answer = _builder_answer.compile()
 
 
-# procedure-only 그래프: merge -> procedure_guide -> END
+# procedure-only 그래프: retrieve_law -> procedure_guide -> END
 _builder_procedure = _build_base_graph()
-_builder_procedure.add_edge("merge", "procedure_guide")
+_builder_procedure.add_edge("retrieve_law", "procedure_guide")
 _builder_procedure.add_edge("procedure_guide", END)
 graph_procedure = _builder_procedure.compile()

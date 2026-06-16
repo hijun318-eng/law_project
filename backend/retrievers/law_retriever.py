@@ -12,7 +12,6 @@ from backend.database import law_db
 from backend.utils.law_normalizer import normalize_law_name, normalize_article_no
 
 
-# ── 상수 ──────────────────────────────────────────────────
 PRECEDENT_SCORE  = 1.0   # 판례에서 직접 참조된 조문
 QUERY_SCORE      = 0.6   # 질의 유사도 기반 조문
 EMBEDDING_WEIGHT = 0.3   # 임베딩 유사도 가중치
@@ -52,7 +51,6 @@ class LawRetriever:
         seen         = set()
 
         for article_id in ref_articles[:MAX_REF_ARTICLES]:
-            # 구분자: '|' (law_normalizer 사용 후 저장된 형식과 일치)
             if "|" not in article_id:
                 continue
 
@@ -85,7 +83,7 @@ class LawRetriever:
 
     # ── 2. 질의 기반 법령 검색 ─────────────────────────────
     def _retrieve_from_query(self, question: str) -> List[Document]:
-        """사용자 질의로 유사 법령 검색 (article_no 없는 조문 제외)"""
+        """사용자 질의로 유사 법령 검색 """
         docs = law_db.similarity_search(question, k=MAX_QUERY_DOCS)
         return [d for d in docs if d.metadata.get("article_no")]
 
@@ -127,7 +125,6 @@ class LawRetriever:
 
         scored.sort(key=lambda x: x.metadata.get("final_score", 0), reverse=True)
 
-        # confidence: 판례 참조 비율 기반
         total      = len(precedent_docs) + len(query_docs)
         confidence = (
             len(precedent_docs) / total

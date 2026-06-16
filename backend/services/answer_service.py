@@ -34,18 +34,25 @@ class AnswerService:
     def _build_law_context(law_analysis: list) -> str:
         parts = []
         seen = set()
-
+        print("======= 최종 LLM 들어가는 법령 =======")
         for d in law_analysis[:3]:
             aid = f"{d['law_name']}_{d['article_no']}"
+            
             if aid in seen:
                 continue
             seen.add(aid)
-            parts.append(
+            
+            
+            block = (
                 f"<article>\n"
                 f"<source>{d['law_name']} {d['article_no']} {d['article_title']}</source>\n"
                 f"<content>{d['page_content']}</content>\n"
                 f"</article>"
             )
+
+            print(block)
+            print("-" * 80)
+            parts.append(block)
 
         return "\n".join(parts)
 

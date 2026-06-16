@@ -18,12 +18,9 @@ RAGEngine — LangGraph 기반 법률 분석 엔진
 """
 from backend.graph import graph
 
-# 각 노드의 한글 레이블 및 설명
 NODE_LABELS = {
     "retrieve_precedent":        "🔍 판례 직접 검색",
     "retrieve_law":              "⚖️ 관련 법령 검색",
-    "retrieve_precedent_by_law": "📎 법령 기반 판례 검색",
-    "merge":                     "🔗 판례 합산",
     "generate_answer":           "💡 최종 답변 생성",
     "procedure_guide":           "📋 절차 안내 생성",
 }
@@ -75,7 +72,6 @@ class RAGEngine:
                 detail = self._format_stream_detail(node_name, output)
                 yield (node_name, label, detail)
 
-        # 최종 결과
         sources = self._format_sources(result)
         yield "done", "✅ 분석 완료", {
             "answer": result.get("final_answer", ""),
@@ -94,15 +90,7 @@ class RAGEngine:
             docs = output.get("law_docs", [])
             analysis = output.get("law_analysis", [])
             return f"법령 {len(docs)}개 검색됨 / 조항 {len(analysis)}개 추출"
- 
-        elif node_name == "retrieve_precedent_by_law":
-            docs = output.get("precedent_docs_law", [])
-            return f"법령 기반 판례 {len(docs)}건 검색됨"
- 
-        elif node_name == "merge":
-            docs = output.get("precedent_docs", [])
-            return f"최종 판례 {len(docs)}건 선정"
- 
+
         elif node_name == "generate_answer":
             answer = output.get("final_answer", "") or ""
             used = output.get("used_precedents", [])
