@@ -4,7 +4,7 @@
 data/raw/의 원본 파일(PDF, MD)을 읽어 data/process/에 JSON으로 저장합니다.
 
 실행 방법 (프로젝트 루트에서):
-    python -m preprocess.run_preprocess
+    python -m backend.preprocess.run_preprocess
 
 의존성:
     preprocess_qna.py → data/raw/pdf/*.pdf → data/process/qna/qna.json
