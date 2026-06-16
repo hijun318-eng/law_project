@@ -8,10 +8,14 @@ PaddleOCR를 래핑하여 이미지에서 한국어 텍스트를 추출한다.
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
 from PIL import Image
+
+# PaddlePaddle >= 3.x PIR OneDNN 호환성 문제 우회
+os.environ.setdefault("FLAGS_enable_pir_api", "0")
 
 _MAX_OCR_WIDTH = 1500
 
@@ -75,12 +79,9 @@ def run_ocr(image_path: str) -> str:
     resized_path = _resize_for_ocr(image_path)
 
     engine = _get_paddle_ocr()
-    result = engine.predict(resized_path)
+    result = engine.ocr(resized_path, cls=False)
 
-    raw = result[0]
-    if isinstance(raw, dict) and "rec_texts" in raw:
-        texts: list[str] = raw["rec_texts"]
-    else:
-        texts = [line[1][0] for line in raw if line[1][1] > 0.5]
+    raw = result[0] if result else []
+    texts = [line[1][0] for line in raw if line[1][1] > 0.5]
 
     return "\n".join(t.strip() for t in texts if t.strip())
