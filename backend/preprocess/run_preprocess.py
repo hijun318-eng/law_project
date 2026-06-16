@@ -12,7 +12,7 @@ data/raw/의 원본 파일(PDF, MD)을 읽어 data/process/에 JSON으로 저장
     preprocess_law.py → data/raw/law/*.pdf → data/process/law/**/*.json
 """
 from backend.preprocess.preprocess_qna import run_qna
-from backend.preprocess.preprocess_case import run
+from backend.preprocess.preprocess_case import run_case
 from backend.preprocess.preprocess_law import run_law
 
 
@@ -35,5 +35,5 @@ CONFIG = {
 
 if __name__ == "__main__":
     run_qna(**CONFIG["qna"])
-    run()
+    run_case(**CONFIG["qna"])
     run_law(**CONFIG["law"])
