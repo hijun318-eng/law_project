@@ -23,7 +23,7 @@ def render_home():
     with colA:
         query = st.text_input(
             "질문을 입력하세요",
-            placeholder="예: 해고가 부당한지 알려줘 / 임금체불 절차 알려줘 / 주휴수당 계산해줘",
+            placeholder="예: 해고가 부당한지 알려줘 / 임금체불 절차 알려줘 / 주휴수당 계산해줘 / 최근 노동법 관련 이슈 찾아줘",
         )
     with colB:
         clicked = st.button("검색", use_container_width=True, type="primary")
@@ -33,12 +33,17 @@ def render_home():
             try:
                 result = router_engine.run(query.strip())
                 st.divider()
+                
+                # 🌟 [수정됨] 라우터 분기 결과에 따른 헤더 출력
                 if result.mode == "case_based_answer":
                     st.markdown("### 💡 최종 답변")
                 elif result.mode == "procedure_guidance":
                     st.markdown("### 📋 대응 절차")
+                elif result.mode == "latest_news":
+                    st.markdown("### 📰 최신 뉴스")
                 else:
                     st.markdown("### 🧮 계산 결과")
+                    
                 st.markdown(result.content)
             except Exception as e:
                 st.error(f"라우터 실행 오류: {e}")
