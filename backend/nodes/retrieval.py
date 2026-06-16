@@ -1,47 +1,59 @@
-"""
-검색 관련 노드 함수: 판례 직접 검색, 법령 검색, 법령 기반 판례 검색
-"""
 from pathlib import Path
 import re
 
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from backend.database import law_db, precedent_db
 from backend.retrievers.law_retriever import law_retriever
 from backend.utils.law_normalizer import normalize_law_name, normalize_article_no
 
 from backend.nodes.graph_state import GraphState
 
+reranker = HuggingFaceCrossEncoder(
+    model_name="Dongjin-kr/ko-reranker"
+)
 
 # ==========================================================
 # NODE 1: 판례 직접 검색
 # ==========================================================
 def retrieve_precedent_node(state: GraphState) -> dict:
-    docs = precedent_db.similarity_search(state["question"], k=10)
+
+    question = state["question"]
+
+    candidates = precedent_db.similarity_search(question, k=30)
     seen = set()
     unique = []
-    for doc in docs:
+    for doc in candidates:
         cn = Path(doc.metadata.get("source_file", "")).stem
         if cn not in seen:
             seen.add(cn)
             unique.append(doc)
-        if len(unique) >= 5:
-            break
 
-    # llm_brief에서 참조조문 추출
+    pairs = [
+        (question, doc.metadata.get("llm_brief", "") or doc.page_content[:1000])
+        for doc in unique
+    ]
+    scores = reranker.score(pairs)
+
+    reranked = sorted(zip(unique, scores), key=lambda x: x[1], reverse=True)
+
+    final = []
+    for doc, score in reranked[:5]:
+        doc.metadata["rerank_score"] = float(score)
+        final.append(doc)
+
     ref_articles_from_precedent = []
     seen_refs = set()
 
-    for doc in unique:
+    for doc in final:
         brief = doc.metadata.get("llm_brief", "")
-
         matches = re.findall(
             r'([가-힣\s·]{2,30}(?:법|법률))\s*(제\d+조(?:의\d+)?)',
             brief
         )
         for raw_law, raw_article in matches:
-            law_name = normalize_law_name(raw_law)        # 
-            article_no = normalize_article_no(raw_article)  
-            article_id = f"{law_name}|{article_no}"       # 
-
+            law_name = normalize_law_name(raw_law)
+            article_no = normalize_article_no(raw_article)
+            article_id = f"{law_name}|{article_no}"
             if article_id not in seen_refs:
                 seen_refs.add(article_id)
                 ref_articles_from_precedent.append(article_id)
@@ -49,13 +61,14 @@ def retrieve_precedent_node(state: GraphState) -> dict:
     precedent_analysis = "\n\n".join(
         f"[사건번호: {Path(doc.metadata.get('source_file', '')).stem}]\n"
         f"{doc.metadata.get('llm_brief', '')[:500]}"
-        for doc in unique
+        for doc in final
     )
-    
+
     return {
-        "precedent_docs_direct": unique[:5],
+        "precedent_docs_direct": final,
         "precedent_analysis": precedent_analysis,
-        "precedent_context_docs": unique[:3],
+        "precedent_context_docs": final[:3],
+        "ref_articles_from_precedent": ref_articles_from_precedent,
     }
 
 
