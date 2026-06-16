@@ -1,5 +1,4 @@
 """
-frontend/pages/latestNews.py
 최신 노동법 뉴스 페이지
 """
 
@@ -8,9 +7,6 @@ from datetime import datetime
 from backend.tools.news_search_tool import NewsSearchTool
 
 
-# ─────────────────────────────────────────────
-# util
-# ─────────────────────────────────────────────
 def format_date(pub_date: str) -> str:
     try:
         dt = datetime.strptime(pub_date, "%a, %d %b %Y %H:%M:%S %z")
@@ -19,20 +15,15 @@ def format_date(pub_date: str) -> str:
         return pub_date
 
 
-# ─────────────────────────────────────────────
-# main page
-# ─────────────────────────────────────────────
 def render_latestNews():
     st.markdown("## 📰 최신 노동법 뉴스")
-
-    # ── 검색 UI ─────────────────────────────────────
     col1, col2 = st.columns([4, 1])
 
     with col1:
         query = st.text_input(
             "검색어",
-            value="최저임금",
-            placeholder="예: 중대재해처벌법 판결, 최저임금 2026",
+            value="대기업 노조 관련 뉴스 알려줘",
+            placeholder="예: 최저임금 2026",
             label_visibility="collapsed",
         )
 
@@ -41,7 +32,6 @@ def render_latestNews():
 
     st.divider()
 
-    # ── 초기 상태 ───────────────────────────────────
     if not search_clicked:
         st.caption("검색어를 입력하고 검색 버튼을 눌러주세요.")
         return
@@ -52,7 +42,6 @@ def render_latestNews():
 
     query = query.strip()
 
-    # ── Tool 실행 (빠른 뉴스 데이터) ────────────────
     tool = NewsSearchTool()
 
     with st.spinner("뉴스 검색 중..."):
@@ -68,14 +57,10 @@ def render_latestNews():
         st.info("관련 기사를 찾지 못했습니다. 다른 검색어를 시도해보세요.")
         return
 
-    # ─────────────────────────────────────────────
-    # UX 핵심: 먼저 UI 자리 확보 (non-blocking 구조)
-    # ─────────────────────────────────────────────
     ai_placeholder = st.empty()
 
     st.caption(f"'{query}' 검색 결과 {len(items)}건")
 
-    # ── 뉴스 목록 먼저 렌더링 (즉시 표시) ─────────────
     for item in items:
         with st.container(border=True):
             st.markdown(f"**{item.get('title', '')}**")
@@ -83,9 +68,7 @@ def render_latestNews():
             st.write(item.get("description", ""))
             st.link_button("기사 보기 →", item.get("link", "#"))
 
-    # ─────────────────────────────────────────────
     # AI 요약
-    # ─────────────────────────────────────────────
     engine = st.session_state.get("news_engine")
 
     with ai_placeholder.container(border=True):
