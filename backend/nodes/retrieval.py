@@ -16,15 +16,6 @@ from backend.nodes.graph_state import GraphState
 # ==========================================================
 def retrieve_precedent_node(state: GraphState) -> dict:
     docs = precedent_db.similarity_search(state["question"], k=10)
-
-    print("\n========== TOP 10 RAW PRECEDENT ==========\n")
-
-    for i, doc in enumerate(docs, 1):
-        print(f"[{i}] {doc.metadata.get('source_file')}")
-        print(f"category: {doc.metadata.get('category')}")
-        print(f"brief: {doc.metadata.get('llm_brief', '')[:200]}")
-        print("-" * 80)
-    
     seen = set()
     unique = []
     for doc in docs:
