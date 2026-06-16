@@ -64,17 +64,26 @@ class LawRouterEngine:
             ]
         )
         mode_raw = getattr(resp, "content", "")
-        if isinstance(mode_raw, str):
-            mode = (mode_raw or "").strip()
+        mode = str(mode_raw).strip().lower()
+
+        # ==========================================
+        # 🚀 디버깅 로그 출력 (터미널 확인용)
+        # ==========================================
+        print("\n" + "="*50)
+        print(f"🗣️ [사용자 질문] {question}")
+        print(f"🤖 [LLM Raw 출력] '{mode}'")
+
+        if ROUTE_PROCEDURE_GUIDANCE in mode:
+            final_mode = ROUTE_PROCEDURE_GUIDANCE
+        elif ROUTE_ALLOWANCE_CALCULATOR in mode:
+            final_mode = ROUTE_ALLOWANCE_CALCULATOR
         else:
-            mode = str(mode_raw).strip()
-        if mode in {
-            ROUTE_CASE_BASED_ANSWER,
-            ROUTE_PROCEDURE_GUIDANCE,
-            ROUTE_ALLOWANCE_CALCULATOR,
-        }:
-            return mode
-        return ROUTE_CASE_BASED_ANSWER
+            final_mode = ROUTE_CASE_BASED_ANSWER  # 방어 로직 (기본값)
+
+        print(f"🚦 [최종 분기 노드] ➔ {final_mode}")
+        print("="*50 + "\n")
+        
+        return final_mode
 
     def run(self, question: str) -> RouterResult:
         mode = self.route(question)
