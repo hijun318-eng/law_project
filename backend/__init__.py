@@ -8,3 +8,4 @@ from backend.nodes import (
     generate_answer_node,
     procedure_guide_node,
 )
+from backend.supervisor.engine import SupervisorEngine
