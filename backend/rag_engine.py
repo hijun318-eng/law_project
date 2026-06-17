@@ -46,6 +46,7 @@ class RAGEngine:
 
         return {
             "answer": result.get("final_answer", ""),
+            "procedure": result.get("procedure_guide", ""), 
             "sources": sources,
         }
 

@@ -79,6 +79,7 @@ class SupervisorState(TypedDict):
     iteration: int                               # 현재까지 실행된 에이전트 수 (MAX_ITERATIONS 제한)
     error: str                                   # 에러 메시지
     rag_sources: list                            # RAG 소스 문서 정보 (frontend 표시용)
+    rag_procedure: str
 
 
 # ── Node 함수 ────────────────────────────────────────────────
@@ -170,7 +171,9 @@ def rag_router_node(state: SupervisorState) -> dict:
         )
 
     result = engine.answer(question)
-
+    procedure = result.get("procedure", "")
+    if procedure == "skip":
+        procedure = ""
     return {
         "intermediate_results": {
             **state.get("intermediate_results", {}),
@@ -179,6 +182,7 @@ def rag_router_node(state: SupervisorState) -> dict:
         "rag_sources": result.get("sources", []),
         "log": "법률 답변 생성 완료",
         "iteration": state.get("iteration", 0) + 1,
+        "rag_procedure": procedure,
     }
 
 

@@ -23,15 +23,6 @@ class SupervisorEngine:
         self.graph = supervisor_graph
 
     def stream_answer(self, question: str):
-        """
-        Supervisor 그래프를 실행하고 각 단계별 결과를 스트리밍합니다.
-
-        Yields:
-            (node_name: str, label: str, detail: str | dict)
-              - 각 서브 에이전트 실행 완료 시: (node_name, label, log_message)
-              - 마지막 yield: ("done", "✅ 분석 완료", {"answer": ..., "sources": [...]})
-        """
-        # 초기 상태
         state = {
             "question": question,
             "messages": [],
@@ -41,36 +32,30 @@ class SupervisorEngine:
             "iteration": 0,
             "error": "",
             "rag_sources": [],
+            "rag_procedure": "",
         }
 
-        latest_state = dict(state)  # streaming 중 누적 상태 추적
+        latest_state = dict(state)
 
         for event in self.graph.stream(state):
             for node_name, output in event.items():
-                # 로그가 있으면 yield
                 log = output.get("log", "")
                 if log:
                     label = NODE_LABELS.get(node_name, node_name)
                     yield (node_name, label, log)
-
-                # 상태 누적 (다음 supervisor 판단에 사용)
                 latest_state.update(output)
 
-        # 그래프 종료 후 최종 답변 조합
         answer = self._build_final_answer(latest_state)
         sources = latest_state.get("rag_sources", [])
+        procedure = latest_state.get("rag_procedure", "")
 
         yield ("done", "✅ 분석 완료", {
             "answer": answer,
-            "procedure": "",
+            "procedure": procedure,
             "sources": sources,
         })
 
     def answer(self, question: str) -> dict:
-        """
-        동기 실행 (streaming 없이 최종 결과만 반환)
-        RAGEngine.answer()와 동일한 시그니처
-        """
         result = self.graph.invoke({
             "question": question,
             "messages": [],
@@ -80,10 +65,12 @@ class SupervisorEngine:
             "iteration": 0,
             "error": "",
             "rag_sources": [],
+            "rag_procedure": "",
         })
         answer = self._build_final_answer(result)
         sources = result.get("rag_sources", [])
-        return {"answer": answer, "sources": sources}
+        procedure = result.get("rag_procedure", "")
+        return {"answer": answer, "procedure": procedure, "sources": sources}
 
     @staticmethod
     def _build_final_answer(state: dict) -> str:
