@@ -2,7 +2,7 @@
 사이드바 렌더링
 """
 import streamlit as st
-from frontend.config import APP_NAME, APP_SUBTITLE, RAG_AVAILABLE
+from frontend.config import APP_NAME, APP_SUBTITLE, ENGINE_AVAILABLE
 from frontend.theme import C_PRIMARY, C_ACCENT
 from frontend.menu import PAGES
 
@@ -52,7 +52,7 @@ def render_sidebar():
 
         # ── 시스템 상태 ──
         with st.expander("🔧 시스템 상태", expanded=False):
-            if RAG_AVAILABLE:
+            if ENGINE_AVAILABLE:
                 engine = st.session_state.get("engine")
                 if engine is not None:
                     try:

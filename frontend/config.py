@@ -11,13 +11,13 @@ import sys
 import uuid
 import streamlit as st
 
-# ── RAG 엔진 연결 (선택적) ────────────────────────────────
+# ── Supervisor 엔진 연결 (선택적) ─────────────────────────
 try:
-    from backend.rag_engine import RAGEngine
-    RAG_AVAILABLE = True
+    from backend.supervisor.engine import SupervisorEngine
+    ENGINE_AVAILABLE = True
 except ImportError as e:
-    RAG_AVAILABLE = False
-    print(f"[WARN] RAG 엔진 로드 실패: {e}")
+    ENGINE_AVAILABLE = False
+    print(f"[WARN] Supervisor 엔진 로드 실패: {e}")
 
 # ============================================================
 # 앱 설정
@@ -45,7 +45,7 @@ def init_session():
         st.session_state.qa_messages = []
     if "engine" not in st.session_state:
         try:
-            st.session_state.engine = RAGEngine() if RAG_AVAILABLE else None
+            st.session_state.engine = SupervisorEngine() if ENGINE_AVAILABLE else None
         except Exception as e:
             st.session_state.engine = None
     if "news_engine" not in st.session_state:

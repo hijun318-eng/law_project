@@ -2,7 +2,7 @@
 홈 페이지
 """
 import streamlit as st
-from frontend.config import RAG_AVAILABLE
+from frontend.config import ENGINE_AVAILABLE
 
 try:
     from backend.router_engine import router_engine
@@ -85,7 +85,7 @@ def render_home():
 
     st.divider()
     st.markdown("### ⚡ 빠른 상담")
-    if RAG_AVAILABLE:
+    if ENGINE_AVAILABLE:
         st.info("아래 질문을 클릭하면 노동권리 진단 페이지에서 상담을 시작합니다.")
         quick_qs = [
             "해고 통보는 언제 해야 하나요?",
