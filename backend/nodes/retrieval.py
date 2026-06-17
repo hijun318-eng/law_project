@@ -69,6 +69,7 @@ def retrieve_precedent_node(state: GraphState) -> dict:
         "precedent_analysis": precedent_analysis,
         "precedent_context_docs": final[:3],
         "ref_articles_from_precedent": ref_articles_from_precedent,
+        "used_precedents": [Path(d.metadata.get("source_file", "")).stem for d in final],
     }
 
 
