@@ -101,7 +101,6 @@ def _render_summary(summary: str, is_valid: bool) -> None:
         unsafe_allow_html=True,
     )
 
-
 # ── 메인 렌더 함수 ────────────────────────────────────────────────────────────
 
 def render_contract():
@@ -160,13 +159,13 @@ def render_contract():
     st.divider()
 
     # 요약 배너
-    _render_summary(result["summary"], v["is_valid"])
+    # _render_summary(result["summary"], v["is_valid"])
 
     # 탭 제목 — 이모지 제거 (Streamlit 이모지 파싱 오류 방지)
     missing_count   = len(v["missing"])
     violation_count = len(v["violations"])
-    tab_label_missing    = "필수기재사항 ✅" if missing_count == 0   else f"필수기재사항 ❌ {missing_count}건 누락"
-    tab_label_violations = "법정기준 ✅"    if violation_count == 0 else f"법정기준 ❌ {violation_count}건 위반"
+    tab_label_missing    = "필수기재사항" if missing_count == 0   else f"필수기재사항 ❌ {missing_count}건 누락"
+    tab_label_violations = "법정기준"    if violation_count == 0 else f"법정기준 ❌ {violation_count}건 위반"
 
     tab_fields, tab_missing, tab_violations = st.tabs([
         "계약 정보",
