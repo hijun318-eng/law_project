@@ -27,8 +27,6 @@
 ```
 law_project/
 ├── main.py                    # 애플리케이션 진입점 (streamlit run)
-├── law_parser.py              # 법령 PDF → 조문 단위 파싱 모듈
-├── final_reason.ipynb         # LangGraph RAG 파이프라인 (실험/분석용)
 │
 ├── backend/                   # 백엔드 엔진
 │   ├── config.py              # LLM / 임베딩 설정 (OpenAI / 로컬)
@@ -51,17 +49,29 @@ law_project/
 │   │       ├─ generate_answer_node()  # LLM 답변 생성
 │   │       └─ procedure_guide_node()  # 절차 안내 생성
 │   │
-│   ├── builders/              # 그래프 빌더
+│   ├── builders/              # 벡터 DB 빌더
+│   │   ├── law_builder.py        # 법령 DB 빌드
+│   │   ├── precedent_builder.py  # 판례 DB 빌드
+│   │   └── qna_builder.py        # 질의회시 DB 빌드
 │   ├── retrievers/            # 벡터 DB 검색기
 │   │   └── law_retriever.py   #   법령 검색기 (2-Path Retrieval: 판례 참조조문 정확매칭 + 질의 유사도 검색)
 │   ├── tools/                 # 도구 모음
 │   ├── services/              # 서비스 레이어
-│   │   ├── answer_service.py  #   LLM 답변 서비스
-│   │   └── procedure_service.py # 절차 안내 서비스
-│   ├── prompts/               # 프롬프트 템플릿
+│   │   ├── answer_service.py            #   LLM 답변 서비스
+│   │   ├── precedent_summary_service.py #   판례 SAC 이중 요약 생성
+│   │   └── procedure_service.py         #   절차 안내 서비스
+│   ├── prompts/               # 프롬프트 템플릿 (5종)
+│   │   ├── answer_prompt.md
+│   │   ├── procedure_prompt.md
+│   │   ├── news_prompt.md
+│   │   ├── calculator_prompt.md
+│   │   └── precedent_summary_prompt.md
 │   ├── preprocess/            # 데이터 전처리
 │   ├── constants/             # 상수 정의
 │   └── utils/                 # 유틸리티
+│       ├── law_normalizer.py  #   법령명·조문번호 정규화
+│       ├── prompt_loader.py   #   프롬프트 파일 로드
+│       └── __init__.py
 │
 ├── frontend/                  # Streamlit 프론트엔드
 │   ├── app.py                 # 메인 라우터
@@ -72,9 +82,9 @@ law_project/
 │   └── pages/                 # 페이지 컴포넌트
 │       ├── home.py
 │       ├── qa.py
-│       ├── rights.py
-│       ├── report.py
-│       ├── evidence.py
+│       ├── rights/             # (__init__.py + data.py)
+│       ├── report/             # (__init__.py + data.py)
+│       ├── evidence/           # (__init__.py + data.py)
 │       ├── calculator.py
 │       ├── docwriter.py
 │       ├── contract.py
@@ -331,7 +341,7 @@ data/raw/ (원본: PDF, MD)
   → backend.preprocess.run_preprocess
     ├── preprocess_law.py   : PDF → 정규식 조문 파싱 → data/process/law/ (JSON)
     ├── preprocess_case.py  : MD → JSON 변환 → data/process/case/ (JSON)
-    ├── preprocess_qna.py   : PDF → 질의 단위 파싱 → data/process/qna/ (JSON)
+    ├── preprocess_qna.py   : PDF → 질의 단위 파싱 → data/process/qna/ (JSON) ※ 현재 미실행 (run_preprocess.py에서 주석 처리)
     └── preprocess_sac.py   : 판례 LLM 이중 요약 → data/cache/sac/ (search + brief)
   → backend.init_db
     └── ChromaDB 저장 (vector_db/ 아래 3개 컬렉션)
