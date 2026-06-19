@@ -35,7 +35,7 @@
 
 ### 2-1. RAG 파이프라인 구성
 
-4개 노드가 순차적으로 실행되며, 각 노드는 LangGraph의 StateGraph로 연결된다(`backend/graph.py:21-24`).
+4개 노드가 순차적으로 실행되며, 각 노드는 LangGraph의 StateGraph로 연결된다(`backend/graph.py`).
 
 ```
         ┌────────────────────────────────────────────────────────────────────┐
@@ -64,7 +64,7 @@
 
 ### 2-2. GraphState 구조
 
-14개 필드로 구성된 GraphState(`backend/nodes/graph_state.py:7-21`)가 RAG 파이프라인 전반의 데이터 흐름을 제어한다.
+14개 필드로 구성된 GraphState(`backend/nodes/graph_state.py`)가 RAG 파이프라인 전반의 데이터 흐름을 제어한다.
 
 | 필드 | 타입 | 생성 노드 | 소비 노드 |
 |------|------|-----------|-----------|
@@ -87,7 +87,7 @@
 
 ### 2-3. 2-Path Retrieval 전략
 
-법령 검색 단계에서는 판례 기반 검색과 질의 기반 검색을 병행하고, 각 경로에 서로 다른 가중치를 부여하여 재정렬하는 하이브리드 검색 방식을 적용하였다(`backend/retrievers/law_retriever.py:15-19`).
+법령 검색 단계에서는 판례 기반 검색과 질의 기반 검색을 병행하고, 각 경로에 서로 다른 가중치를 부여하여 재정렬하는 하이브리드 검색 방식을 적용하였다(`backend/retrievers/law_retriever.py`).
 
 | 경로 | 점수 | 근거 |
 |------|------|------|
@@ -191,7 +191,7 @@ Vector Search 단독으로는 임베딩 유사도 상위 결과가 실제 법적
 └─────────────────────────────────────────────────┘
 ```
 
-RouterEngine/LawRouterEngine(`backend/router_engine.py:30-53`)은 4개 모드를 분류하며, fallback으로 `case_based_answer`를 사용한다. 24줄 길이의 SYSTEM_PROMPT가 라우팅 기준을 정의한다.
+RouterEngine/LawRouterEngine(`backend/router_engine.py`)은 4개 모드를 분류하며, fallback으로 `case_based_answer`를 사용한다. 24줄 길이의 SYSTEM_PROMPT가 라우팅 기준을 정의한다.
 
 ### 3-2. Supervisor Graph
 
@@ -305,7 +305,7 @@ class ToolRegistry:
 
 ### LLM 구조화 추출 (Zero-shot)
 
-OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로시간, 휴게시간, 휴일, 연차, 계약기간, 업무내용)을 **Zero-shot**(예제 없이 규칙만 제시) 프롬프트로 JSON 추출한다(`llm/extractor.py`, `constants.py:46-90`). 추출 규칙으로 OCR 오타 보정(근료→근로), 빈 양식 null 처리, 추측 표현 금지, 원문 그대로 추출을 명시한다. LLM 출력 파싱 실패 시 기본값을 반환하여 파이프라인이 중단되지 않도록 한다.
+OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로시간, 휴게시간, 휴일, 연차, 계약기간, 업무내용)을 **Zero-shot**(예제 없이 규칙만 제시) 프롬프트로 JSON 추출한다(`llm/extractor.py`, `constants.py`). 추출 규칙으로 OCR 오타 보정(근료→근로), 빈 양식 null 처리, 추측 표현 금지, 원문 그대로 추출을 명시한다. LLM 출력 파싱 실패 시 기본값을 반환하여 파이프라인이 중단되지 않도록 한다.
 
 ### 규칙 기반 위반 검사
 
@@ -330,7 +330,7 @@ OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로
 
 ### 5-1. LLM 파라미터 정책
 
-`temperature=0` 설정(`backend/config.py:12-15`)은 법률 도메인의 특수성을 고려한 의도적 설계 결정이다.
+`temperature=0` 설정(`backend/config.py`)은 법률 도메인의 특수성을 고려한 의도적 설계 결정이다.
 
 | 파라미터 | 값 | 설계 의도 |
 |----------|-----|-----------|
@@ -341,7 +341,7 @@ OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로
 
 ### 5-2. 프롬프트 템플릿 관리
 
-5개 프롬프트 템플릿을 외부 파일로 분리하여 관리한다(`utils/prompt_loader.py:5-8`).
+5개 프롬프트 템플릿을 외부 파일로 분리하여 관리한다(`utils/prompt_loader.py`).
 
 | 템플릿 파일 | 용도 | 특징 |
 |-------------|------|------|

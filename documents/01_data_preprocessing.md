@@ -331,9 +331,9 @@ ChromaDB의 `similarity_search`로 1차 후보를 추출한 후, Cross-Encoder �
 
 | 단계 | 중복 제거 기준 | 코드 위치 |
 |------|---------------|-----------|
-| 판례 검색 결과 | 사건번호(case_no) 기준 `seen` 집합 | `backend/nodes/retrieval.py:23-29` |
-| SAC 캐시 로딩 | 사건번호 기준 `seen_cases` 집합 | `backend/builders/precedent_builder.py:52-55` |
-| 법령 검색 결과 | `(law_name, article_no)` 기준 `seen` 집합 | `backend/retrievers/law_retriever.py:62-64` |
+| 판례 검색 결과 | 사건번호(case_no) 기준 `seen` 집합 | `backend/nodes/retrieval.py` |
+| SAC 캐시 로딩 | 사건번호 기준 `seen_cases` 집합 | `backend/builders/precedent_builder.py` |
+| 법령 검색 결과 | `(law_name, article_no)` 기준 `seen` 집합 | `backend/retrievers/law_retriever.py` |
 | 법률 PDF 파싱 | 동일 페이지 번호 재파싱 방지 | `backend/preprocess/preprocess_law.py` |
 
 ### 7-2. 결측치(Missing Value) 처리
@@ -343,9 +343,9 @@ ChromaDB의 `similarity_search`로 1차 후보를 추출한 후, Cross-Encoder �
 
 | 처리 대상 | 방식 | 코드 위치 |
 |-----------|------|-----------|
-| OCR 필드 null 체크 | `if not v or v.lower() == "null"` | `ocr_contract/rules/core/blank_checker.py:15` |
-| 필수 기재사항 누락 | `REQUIRED_FIELDS` 사전 기반 검사 | `ocr_contract/rules/validators/required.py:5-11` |
-| 결측 시각화 | ✅ (정상) / ❌ (누락) 아이콘 표시 | `ocr_contract/pipeline.py:53-58` |
+| OCR 필드 null 체크 | `if not v or v.lower() == "null"` | `ocr_contract/rules/core/blank_checker.py` |
+| 필수 기재사항 누락 | `REQUIRED_FIELDS` 사전 기반 검사 | `ocr_contract/rules/validators/required.py` |
+| 결측 시각화 | ✅ (정상) / ❌ (누락) 아이콘 표시 | `ocr_contract/pipeline.py` |
 
 ### 7-3. 편향성(Bias) 고려 사항
 
