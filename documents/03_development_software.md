@@ -17,7 +17,7 @@
 | **언어/프레임워크** | Python, Streamlit (프론트엔드) |
 | **LLM** | OpenAI GPT (gpt-5.4-nano) |
 | **Embedding** | text-embedding-3-small |
-| **Vector DB** | ChromaDB (3개 컬렉션: laws, precedents, qna) |
+| **Vector DB** | ChromaDB (2개 컬렉션: laws, precedents) |
 | **RAG Orchestration** | LangChain, LangGraph |
 | **Reranker** | Dongjin-kr/ko-reranker (CrossEncoder) |
 
@@ -153,7 +153,6 @@ Vector Search 단독으로는 임베딩 유사도 상위 결과가 실제 법적
 
 **한계 및 트레이드오프**
 
-- **qna_db 미연결**: ChromaDB에 qna 컬렉션이 생성되어 있으나 실제 검색 파이프라인에 통합되지 않음 — 향후 질의회시 데이터 활용을 위해 파이프라인 확장 필요.
 - **테스트 코드 미구현**: RAG 파이프라인의 각 노드별 단위 테스트 부재로 회귀 검증이 어려움.
 - **BM25+Vector 혼합 미적용**: 현재는 Vector Search 단일 방식만 사용 중 — 하이브리드 검색의 재현율 향상을 위해 BM25 스파스 검색 병합 검토 가능.
 
@@ -363,7 +362,7 @@ class ToolRegistry:
 
 | 평가 영역 | 핵심 근거 |
 |-----------|-----------|
-| **Hybrid RAG 및 DB 연동** | SAC 이중 요약, 2-Path 하이브리드 검색, CrossEncoder 리랭킹 등 고급 RAG 기법 적용. 3개 그래프 변형으로 시나리오별 최적화. qna_db 파이프라인 미연결은 보완 필요. |
+| **Hybrid RAG 및 DB 연동** | SAC 이중 요약, 2-Path 하이브리드 검색, CrossEncoder 리랭킹 등 고급 RAG 기법 적용. 3개 그래프 변형으로 시나리오별 최적화. |
 | **Multi-Agent 및 ReAct** | Supervisor+Router 2단계 라우팅 구조로 단일/복합 질문 모두 처리. ToolRegistry의 플러그인 아키텍처 우수. MCP Server 미구현, 동시성 부재는 향후 과제. |
 | **코드 최적화 및 품질** | 계층적 모듈 구조 우수, 프롬프트 외부 파일 관리 도입. 예외 처리 일관성 부족, 평가 체계 및 인젝션 방어 미비. |
 | **종합** | Hybrid RAG와 Multi-Agent 아키텍처의 설계 수준이 높고 실무 적용 가능한 수준. SAC, 2-Path Retrieval, Supervisor 패턴 등 고급 기법을 적극 도입. 코드 품질 영역(예외 처리 일관성, 테스트, 보안)은 지속적 개선 필요. |
@@ -477,7 +476,6 @@ ToolRegistry는 싱글턴 + BaseTool 추상화 패턴으로 설계되어 신규 
 
 | 우선순위 | 영역 | 개선 항목 | 기대 효과 |
 |:--------:|------|-----------|-----------|
-| **P0** | RAG | qna_db 파이프라인 통합 | 질의회시 데이터 활용으로 답변 범위 확장 |
 | **P0** | Multi-Agent | JSON structured output 도입 | LLM 출력 파싱 안정성 향상, 키워드 의존성 제거 |
 | **P1** | RAG | BM25+Vector 하이브리드 검색 | 재현율 개선, 검색 품질 향상 |
 | **P1** | 코드 품질 | `@exception_handler` 데코레이터 도입 | 예외 처리 일관성 확보 |

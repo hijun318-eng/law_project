@@ -7,7 +7,7 @@
 | 컴포넌트 | 역할 | 비고 |
 |---|---|---|
 | LLM (GPT, gpt-5.4-nano) | 답변 생성, 라우팅 판단, 쿼리 재작성 | 검색 단계는 최소 사용, 답변 생성 단계에 집중 |
-| Vector DB (Chroma) | 법령 / 판례 / 질의회시 3개 독립 컬렉션 | `vector_db/laws`, `vector_db/precedents`, `vector_db/qna` |
+| Vector DB (Chroma) | 법령 / 판례 2개 독립 컬렉션 | `vector_db/laws`, `vector_db/precedents` |
 | Cross-Encoder Reranker | 판례 후보 재정렬 | `Dongjin-kr/ko-reranker`, 한국어 특화 |
 | LangGraph | Multi-Agent 오케스트레이션 | Supervisor 패턴 + Sequential 서브그래프 |
 | 외부 API (MCP 방향) | 최신 뉴스 검색 | 네이버 뉴스 API, ReAct 패턴으로 호출 |

@@ -30,7 +30,7 @@ law_project/
 │
 ├── backend/                   # 백엔드 엔진
 │   ├── config.py              # LLM / 임베딩 설정 (OpenAI / 로컬)
-│   ├── database.py            # ChromaDB 연결 (laws / precedents / qna)
+│   ├── database.py            # ChromaDB 연결 (laws / precedents)
 │   ├── graph.py               # LangGraph StateGraph 빌드 + compile (3가지 그래프 변형)
 │   ├── rag_engine.py          # RAG 검색 엔진
 │   ├── router_engine.py       # 질문 라우팅 엔진
@@ -51,8 +51,7 @@ law_project/
 │   │
 │   ├── builders/              # 벡터 DB 빌더
 │   │   ├── law_builder.py        # 법령 DB 빌드
-│   │   ├── precedent_builder.py  # 판례 DB 빌드
-│   │   └── qna_builder.py        # 질의회시 DB 빌드
+│   │   └── precedent_builder.py  # 판례 DB 빌드
 │   ├── retrievers/            # 벡터 DB 검색기
 │   │   └── law_retriever.py   #   법령 검색기 (2-Path Retrieval: 판례 참조조문 정확매칭 + 질의 유사도 검색)
 │   ├── supervisor/            # Supervisor 멀티에이전트
@@ -130,8 +129,7 @@ law_project/
 │
 └── vector_db/                 # ChromaDB 벡터 저장소
     ├── laws/                  # 법령 벡터 DB
-    ├── precedents/            # 판례 벡터 DB
-    └── qna/                   # 질의회시 벡터 DB
+    └── precedents/            # 판례 벡터 DB
 ```
 
 ---
@@ -385,7 +383,6 @@ streamlit run main.py
 | **PEFT 파인튜닝 (LoRA/QLoRA)** | OpenAI API 기반 시스템으로 자체 모델 파인튜닝 불필요. 필요 시 LoRA 코드 추가 가능 |
 | **Graph DB (Neo4j 등)** | 법령-판례 참조 관계를 정규식+메타데이터 매칭으로 대체 처리. Graph DB 없이도 2-Path Retrieval로 유사한 효과 달성 |
 | **MCP Server 프로세스** | `to_mcp_spec()` 메서드로 Tool→MCP 스펙 변환 인터페이스는 준비 완료. 실제 MCP Server(stdio/SSE) 구축은 미완료 |
-| **qna_db 파이프라인 미연결** | 질의회시 DB(`vector_db/qna/`)는 구축 완료. RAG 파이프라인 3번째 검색 경로로 추가 예정 |
 
 ---
 
