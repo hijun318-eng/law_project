@@ -6,6 +6,15 @@
 
 ---
 
+| | | | |
+|:---:|:---:|:---:|:---:|
+| **정영석** | **최원빈** | **성주연** | **박준희** |
+| ![](https://i.namu.wiki/i/SkYJqoXRACl-NHkgkv0M8qnTxZUu317NKrLIC4dpsA6jgDHp04Gh6QVaZoWuIe1SgrOaeNQ_AwpjK33ew3edyQ.webp) | ![](https://i.namu.wiki/i/WLSvu1CXwdQpfmetI3cb_XSPQrWC67hUyiiX-q7BILbJ43x723llFIqlAOAQM3GPxpliwQXJUS7yqMgRzmu7aA.png) | ![](https://i.namu.wiki/i/W0ecjkAo3nV1YYtRyZtWnsmPiJhoK_MLs4O12oa6t79fVFBeEOT18zGNy697PHIUOaCIZbYvoWQc7uogp1B6MA.png) | ![](https://i.namu.wiki/i/_wp85K6xnUM7MbD3MQeeGRt2v8wvZ4vuenOxKaDrEC3ImqiZflWz5pqCr70sXfLDjmfyn8Eo2AslffIwjw7LYg.png) |
+| PM | Backend Developer | AI Workflow | RAG Engineer |
+| 전체 일정 관리, 통합 조율 | LangGraph 설계, 프롬프트 엔지니어링 | 벡터 DB 구성, 검색 파이프라인 최적화 | 서버 구축, API 연동, 데이터 파이프라인 |
+
+---
+
 ## 주요 기능
 
 | 페이지 | 기능 |
