@@ -55,7 +55,14 @@ law_project/
 │   │   └── qna_builder.py        # 질의회시 DB 빌드
 │   ├── retrievers/            # 벡터 DB 검색기
 │   │   └── law_retriever.py   #   법령 검색기 (2-Path Retrieval: 판례 참조조문 정확매칭 + 질의 유사도 검색)
-│   ├── tools/                 # 도구 모음
+│   ├── supervisor/            # Supervisor 멀티에이전트
+│   │   ├── graph.py           #   SupervisorGraph 정의 (302줄)
+│   │   └── engine.py          #   Supervisor 실행 엔진
+│   ├── tools/                 # 도구 레지스트리 (ToolRegistry 싱글턴)
+│   │   ├── __init__.py        #   Tool 일괄 export
+│   │   ├── registry.py        #   ToolRegistry (등록/조회/실행)
+│   │   ├── base.py            #   BaseTool 추상 클래스 + ToolResult
+│   │   └── news_search_tool.py#   NewsSearchTool (네이버 뉴스 API)
 │   ├── services/              # 서비스 레이어
 │   │   ├── answer_service.py            #   LLM 답변 서비스
 │   │   ├── precedent_summary_service.py #   판례 SAC 이중 요약 생성
@@ -66,8 +73,23 @@ law_project/
 │   │   ├── news_prompt.md
 │   │   ├── calculator_prompt.md
 │   │   └── precedent_summary_prompt.md
+│   │
+│   ├── news/                  # 뉴스 서브엔진 (ReAct 루프)
+│   │   ├── constants.py       #   뉴스 검색 상수
+│   │   ├── news_parser.py     #   뉴스 파싱
+│   │   ├── news_normalizer.py #   뉴스 텍스트 정규화
+│   │   ├── news_rewriter.py   #   뉴스 요약 재작성
+│   │   ├── news_executor.py   #   뉴스 검색 실행기
+│   │   └── news_message_builder.py # LLM 메시지 구성
+│   ├── calculator/            # 계산 서브엔진 (ReAct)
+│   │   ├── __init__.py
+│   │   ├── core.py            #   계산 코어 로직
+│   │   ├── graph.py           #   계산기 LangGraph
+│   │   └── tools.py           #   계산 도구 함수
 │   ├── preprocess/            # 데이터 전처리
 │   ├── constants/             # 상수 정의
+│   │   ├── __init__.py
+│   │   └── procedure_map.py   #   법적 절차 매핑
 │   └── utils/                 # 유틸리티
 │       ├── law_normalizer.py  #   법령명·조문번호 정규화
 │       ├── prompt_loader.py   #   프롬프트 파일 로드
@@ -101,6 +123,9 @@ law_project/
 │   │   ├── 판례/              # 판례 JSON
 │   │   └── 질의회시집/         # 질의회시 JSON
 │   └── cache/                 # 캐시
+│
+├── documents/                 # 시스템 아키텍처 문서
+│   └── system_architecture.md
 │
 └── vector_db/                 # ChromaDB 벡터 저장소
     ├── laws/                  # 법령 벡터 DB
