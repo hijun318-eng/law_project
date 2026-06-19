@@ -177,7 +177,7 @@ class GraphState(TypedDict):
 
 | # | 노드 | 파일 | 역할 |
 |---|------|------|------|
-| 1 | `retrieve_precedent_node` | `retrieval.py` | ChromaDB(precedents)에서 질문과 유사한 판례 30건 검색 → CrossEncoder 리랭킹 → 상위 5건 선정. llm_brief에서 정규식으로 참조조문(법령명+조문번호) 추출 |
+| 1 | `retrieve_precedent_node` | `retrieval.py` | ChromaDB(precedents)에서 질문과 유사한 판례 30건 검색 → CrossEncoder 리랭킹 → 상위 조문 선정. llm_brief에서 정규식으로 참조조문(법령명+조문번호) 추출 |
 | 2 | `retrieve_law_node` | `retrieval.py` | `law_retriever`를 통해 2-Path Retrieval (Path 1: 판례 참조조문 정확매칭 / Path 2: 질의 유사도 검색). 점수 합산 후 상위 7개 조문 반환 |
 | 3 | `generate_answer_node` | `generation.py` | `answer_service`를 통해 법령 분석 + 판례 분석을 종합한 LLM 최종 답변 생성 |
 | 4 | `procedure_guide_node` | `generation.py` | `procedure_service`를 통해 법적 절차(진정·소송 등) 안내 생성 |
@@ -345,60 +345,9 @@ streamlit run main.py
 |--------|------|------|
 | **법령** | 국가법령정보센터 (law.go.kr) | PDF |
 | **판례** | 대법원 종합법률정보 (glaw.scourt.go.kr) | Markdown |
-| **질의회시** | 고용노동부 질의회시집 | Excel → JSON |
+| **질의회시** | 고용노동부 질의회시집 | PDF → JSON |
 
 ---
-
-## 데이터 전처리 및 청킹 전략
-
-### 데이터 수집 채널
-
-| 데이터 | 출처 | 수집 방식 | 건수 |
-|--------|------|----------|:---:|
-| **법령** | 국가법령정보센터 (law.go.kr) | PDF 다운로드 후 조문 단위 파싱 | 8종 (근로기준법, 최저임금법 등 노동 핵심 법령) |
-| **판례** | 대법원 종합법률정보 (casenote.kr) | 웹 크롤링 (BeautifulSoup) | 52건 (44개 리딩 케이스, A~F 카테고리) |
-| **질의회시** | 고용노동부 질의회시집 | Excel → JSON 변환 | 1개 파일 (질의/회시 단위 분리) |
-
-### 전처리 파이프라인
-
-```
-data/raw/ (원본: PDF, MD)
-  → backend.preprocess.run_preprocess
-    ├── preprocess_law.py   : PDF → 정규식 조문 파싱 → data/process/law/ (JSON)
-    ├── preprocess_case.py  : MD → JSON 변환 → data/process/case/ (JSON)
-    ├── preprocess_qna.py   : PDF → 질의 단위 파싱 → data/process/qna/ (JSON) ※ 현재 미실행 (run_preprocess.py에서 주석 처리)
-    └── preprocess_sac.py   : 판례 LLM 이중 요약 → data/cache/sac/ (search + brief)
-  → backend.init_db
-    └── ChromaDB 저장 (vector_db/ 아래 3개 컬렉션)
-```
-
-### 청킹(Chunking) 전략
-
-본 프로젝트는 데이터 유형별로 최적화된 3가지 청킹 전략을 사용합니다:
-
-| 데이터 | 청킹 전략 | 설명 |
-|--------|:---------:|------|
-| **법령** | 구조 기반 청킹 (조문 단위) | `preprocess_law.py`에서 `제X조` 단위로 Document 분리. 장/절/조/항 메타데이터 포함. ChromaDB flat metadata 구조에 최적화 |
-| **판례** | SAC (Summary-Augmented Chunking) | 1건의 판례를 **검색용(search, 구어체 요약)** 과 **LLM용(brief, 법률 내용)** 으로 분리 → Vocabulary Mismatch 해결. 카테고리별 요약 방식 차등 적용 |
-| **질의회시** | 질문 단위 청킹 | 질문(question) 단위로 Document 분리 |
-
-### SAC 구조 상세
-
-SAC(Summary-Augmented Chunking)은 본 프로젝트의 핵심 청킹 전략으로, 검색 효율성과 답변 품질을 동시에 확보하기 위해 설계되었습니다.
-
-```
-[검색용 SAC - page_content (ChromaDB 임베딩 대상)]
-  [핵심 쟁점]  카테고리 기반 쟁점 정리  → 사용자 구어체와 임베딩 공간 일치
-  [판결 결론]  카테고리 기반 판결 요약
-
-[LLM용 브리프 - metadata["llm_brief"] (LLM 컨텍스트 주입용)]
-  [사건 개요]  발생한 분쟁을 법률 용어로 정리
-  [판결 요지]  법원의 핵심 판단
-  [핵심 법리]  판례에서 확립된 법적 원칙
-  [참조 조문]  적용된 법령명과 조문번호
-```
-
-이 구조를 통해 "찾을 때는 구어체로, 답변 생성할 때는 법률 내용으로" 각각 최적화된 텍스트를 사용합니다.
 
 ### 데이터 중복 및 결측치 처리
 
@@ -409,22 +358,7 @@ SAC(Summary-Augmented Chunking)은 본 프로젝트의 핵심 청킹 전략으�
 
 ---
 
-## 테스트 및 평가 현황
-
-### 단위/통합 테스트
-- ❌ **테스트 코드 미구현**: pytest/unittest 기반 테스트 파일 없음
-- ❌ **Ground Truth 데이터셋 미구축**: RAG 성능 평가용 정답 데이터셋 없음
-
-### 정량적 평가 지표
-| 평가 항목 | 적용 여부 | 비고 |
-|----------|:--------:|------|
-| BLEU/ROUGE | ❌ 미산출 | 번역/요약 평가지표 미적용 |
-| LM-Eval (lm-evaluation-harness) | ❌ 미사용 | sLLM 벤치마크 테스트 미수행 |
-| LLM-as-a-Judge (Context Relevance) | ❌ 미평가 | 검색 컨텍스트와 질문의 관련성 평가 없음 |
-| LLM-as-a-Judge (Groundedness) | ❌ 미평가 | 답변의 검색 결과 근거 충실성 평가 없음 |
-| LLM-as-a-Judge (Answer Relevance) | ❌ 미평가 | 답변의 질문 대응 적절성 평가 없음 |
-
-### 회고 및 한계점 분석
+## 회고 및 한계점 분석
 
 프로젝트 파이프라인은 다음과 같은 7단계 진화 과정을 거쳤습니다:
 
@@ -454,6 +388,14 @@ SAC(Summary-Augmented Chunking)은 본 프로젝트의 핵심 청킹 전략으�
 
 ---
 
+## Streamlit 구현
+
+
+
+
+
+---
+
 ## 주의사항
 
 > ⚠️ **본 서비스는 참고용이며 법적 효력이 없습니다.**
@@ -466,4 +408,4 @@ SAC(Summary-Augmented Chunking)은 본 프로젝트의 핵심 청킹 전략으�
 
 ## 라이선스
 
-© 2025. All rights reserved.
+© 2026. All rights reserved.
