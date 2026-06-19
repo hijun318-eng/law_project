@@ -125,7 +125,8 @@ law_project/
 │   └── cache/                 # 캐시
 │
 ├── documents/                 # 시스템 아키텍처 문서
-│   └── system_architecture.md
+│   ├── 02_system_architecture.md
+│   └── 03_development_software.md
 │
 └── vector_db/                 # ChromaDB 벡터 저장소
     ├── laws/                  # 법령 벡터 DB
@@ -140,7 +141,7 @@ law_project/
 | 분야 | 기술 |
 |------|------|
 | **프레임워크** | Python, Streamlit |
-| **LLM** | OpenAI GPT |
+| **LLM** | OpenAI GPT (gpt-5.4-nano) |
 | **RAG** | LangChain, LangGraph |
 | **벡터 DB** | ChromaDB |
 | **임베딩** | text-embedding-3-small |

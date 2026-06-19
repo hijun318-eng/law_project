@@ -6,7 +6,7 @@
 
 | 컴포넌트 | 역할 | 비고 |
 |---|---|---|
-| LLM (GPT) | 답변 생성, 라우팅 판단, 쿼리 재작성 | 검색 단계는 최소 사용, 답변 생성 단계에 집중 |
+| LLM (GPT, gpt-5.4-nano) | 답변 생성, 라우팅 판단, 쿼리 재작성 | 검색 단계는 최소 사용, 답변 생성 단계에 집중 |
 | Vector DB (Chroma) | 법령 / 판례 / 질의회시 3개 독립 컬렉션 | `vector_db/laws`, `vector_db/precedents`, `vector_db/qna` |
 | Cross-Encoder Reranker | 판례 후보 재정렬 | `Dongjin-kr/ko-reranker`, 한국어 특화 |
 | LangGraph | Multi-Agent 오케스트레이션 | Supervisor 패턴 + Sequential 서브그래프 |
@@ -255,11 +255,13 @@ registry.run(tool_name, **args) → 실행
 | `question` | str | 입력 | 전체 노드 |
 | `precedent_docs_direct` | list | retrieve_precedent | (디버깅/소스 표시) |
 | `precedent_analysis` | str | retrieve_precedent | generate_answer |
+| `precedent_docs` | list | retrieve_precedent | generate_answer (병합된 최종 판례) |
 | `precedent_context_docs` | list | retrieve_precedent | generate_answer |
 | `ref_articles_from_precedent` | list[str] | retrieve_precedent | retrieve_law (내부 law_retriever) |
 | `law_docs` | list | retrieve_law | _format_sources |
 | `law_analysis` | list[dict] | retrieve_law | generate_answer |
 | `law_source` | str | retrieve_law | generate_answer (출처 신뢰도 표시) |
+| `law_context` | str | retrieve_law | generate_answer (LLM 주입용 컨텍스트) |
 | `law_confidence` | float | retrieve_law | (확장: 임계값 기반 분기용) |
 | `final_answer` | str | generate_answer | procedure_guide, 출력 |
 | `used_precedents` | list[str] | generate_answer | procedure_guide |

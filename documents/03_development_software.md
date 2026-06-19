@@ -71,11 +71,13 @@
 | `question` | str | 입력 | 전체 노드 |
 | `precedent_docs_direct` | list | retrieve_precedent | (디버깅/소스 표시) |
 | `precedent_analysis` | str | retrieve_precedent | generate_answer |
+| `precedent_docs` | list | retrieve_precedent | generate_answer (병합된 최종 판례) |
 | `precedent_context_docs` | list | retrieve_precedent | generate_answer |
 | `ref_articles_from_precedent` | list[str] | retrieve_precedent | retrieve_law |
 | `law_docs` | list | retrieve_law | _format_sources |
 | `law_analysis` | list[dict] | retrieve_law | generate_answer |
 | `law_source` | str | retrieve_law | generate_answer (출처 신뢰도) |
+| `law_context` | str | retrieve_law | generate_answer (LLM 주입용) |
 | `law_confidence` | float | retrieve_law | (확장용) |
 | `final_answer` | str | generate_answer | procedure_guide, 출력 |
 | `used_precedents` | list[str] | generate_answer | procedure_guide |
@@ -312,7 +314,7 @@ class ToolRegistry:
 | `procedure_prompt.md` | 절차 안내 | 단계별 행정 절차 서술 |
 | `news_prompt.md` | 뉴스 ReAct | 검색 결과 기반 최신 동향 요약 |
 | `calculator_prompt.md` | 수당 계산기 | 만/억 단위 계산 규칙 포함 |
-| `precedent_summary.md` | 판례 요약 | 판례의 법리적 쟁점 추출 |
+| `precedent_summary_prompt.md` | 판례 요약 | 판례의 법리적 쟁점 추출 |
 
 `prompt_loader.py`는 `string.Template.safe_substitute`를 사용한 템플릿 치환 방식으로, 프롬프트 수정 시 코드 변경 없이 파일만 수정하면 된다.
 
