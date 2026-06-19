@@ -1,97 +1,444 @@
 # 개발된 소프트웨어: RAG 기반 LLM과 벡터 데이터베이스 연동 구현 코드
 
-## 1. 개요
+## 1. 시스템 개요
 
-- **프로젝트명**: 노동 법률 종합 AI 어시스턴트
-- **평가 목적**: RAG 기반 LLM-벡터 DB 연동, Multi-Agent 워크플로우, 코드 품질 종합 평가
-- **기술 스택**: Python, Streamlit, LangChain, LangGraph, ChromaDB, OpenAI GPT
+### 1-1. 프로젝트 개요
 
-## 2. Hybrid RAG 및 DB 연동 완성도
+| 항목 | 내용 |
+|------|------|
+| **프로젝트명** | 노동 법률 종합 AI 어시스턴트 |
+| **설계 목적** | RAG 기반 LLM-벡터 DB 연동, Multi-Agent 워크플로우 구현 및 코드 품질 평가 |
+| **핵심 요구사항** | 법률 도메인 특화 검색 및 답변 생성, 복합 질의 처리 |
 
-### 2.1 구현 현황
-3개 ChromaDB 컬렉션(laws, precedents, qna), LangGraph 4개 노드 RAG 파이프라인, 2-Path Retrieval, CrossEncoder 리랭킹, SAC(Summary-Augmented Chunking) 적용.
+### 1-2. 기술 스택
 
-### 2.2 코드 분석
-- 4개 노드 (backend/graph.py:21-24): retrieve_precedent -> retrieve_law -> generate_answer -> procedure_guide
-- GraphState 14개 필드 (backend/nodes/graph_state.py:7-21)
-- 3개 그래프 변형: graph(통합QA), graph_answer(답변전용), graph_procedure(절차전용)
-- 2-Path Retrieval (backend/retrievers/law_retriever.py:31-41): Path1 판례 참조조문 정확매칭 + Path2 질의 유사도 검색
-- SAC 이중 요약: page_content(검색용) + metadata[llm_brief](LLM용), 카테고리 기반 차등 요약
-- CrossEncoder 리랭킹: HuggingFaceCrossEncoder k=30->top5, 사건번호 중복 제거
-- temperature=0 (backend/config.py:12-15): 법률 도메인 일관성 확보 (의도적 설계)
+| 분야 | 기술 |
+|------|------|
+| **언어/프레임워크** | Python, Streamlit (프론트엔드) |
+| **LLM** | OpenAI GPT (gpt-5.4-nano) |
+| **Embedding** | text-embedding-3-small |
+| **Vector DB** | ChromaDB (3개 컬렉션: laws, precedents, qna) |
+| **RAG Orchestration** | LangChain, LangGraph |
+| **Reranker** | Dongjin-kr/ko-reranker (CrossEncoder) |
 
-### 2.3 평가
-- 장점: SAC 혁신적 설계, 2-Path 하이브리드, CrossEncoder 리랭킹, 3개 그래프 변형
-- 한계: qna_db 미연결, 테스트 코드 미구현, BM25+Vector 미적용
+### 1-3. 데이터 출처 및 전처리
 
-### 2.4 등급: 중(Intermediate)
+| 데이터 | 출처 | 형식 | 전처리 방식 |
+|--------|------|------|-------------|
+| 법령 데이터 | 국가법령정보센터 | 텍스트/JSON | 조문 단위 청킹, 메타데이터 인덱싱 |
+| 판례 데이터 | 대법원 종합법률정보 | 텍스트 | SAC 요약 (page_content + llm_brief), 카테고리 기반 차등 요약 |
+| 질의회시 데이터 | 고용노동부 | 텍스트 | 청킹 후 ChromaDB 저장 |
 
-## 3. Multi-Agent 및 ReAct 워크플로우
+---
 
-### 3.1 구현 현황
-RouterEngine(4개 모드 분류), SupervisorGraph(LLM 서브에이전트 선택), ToolRegistry(싱글턴), Calculator/News ReAct.
+## 2. Hybrid RAG 시스템
 
-### 3.2 코드 분석
-- RouterEngine (backend/router_engine.py): 4개 모드, fallback case_based_answer, 49줄 SYSTEM_PROMPT
-- SupervisorGraph (backend/supervisor/graph.py): MAX_ITERATIONS=3, 중복 방지, 키워드 파싱
-- ToolRegistry (tools/registry.py): 싱글턴, BaseTool 추상화, to_mcp_spec() (MCP 미구현)
-- 계산기 ReAct: create_react_agent (4개 도구), calculator_prompt.md 만/억 단위 규칙
-- 뉴스 ReAct: 수동 루프, NewsQueryRewriter, 동일 Action 반복 감지
+### 2-1. RAG 파이프라인 구성
 
-### 3.3 평가
-- 장점: Supervisor 복합 질문 처리, 중복 방지+반복 제한, ToolRegistry 플러그인 구조
-- 한계: 키워드 파싱 한계, MCP Server 미구현, 동시성 부재, 에러 복구 없음
+4개 노드가 순차적으로 실행되며, 각 노드는 LangGraph의 StateGraph로 연결된다(`backend/graph.py:21-24`).
 
-### 3.4 등급: 중(Intermediate)
+```
+        ┌────────────────────────────────────────────────────────────────────┐
+        │                         RAG Pipeline                              │
+        │                                                                    │
+        │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐         │
+        │  │ retrieve_    │ →  │ retrieve_law │ →  │ generate_    │         │
+        │  │ precedent    │    │              │    │ answer       │         │
+        │  └──────────────┘    └──────────────┘    └──────┬───────┘         │
+        │                                                  │                 │
+        │                                                  ▼                 │
+        │                                         ┌──────────────┐          │
+        │                                         │ procedure_   │          │
+        │                                         │ guide        │          │
+        │                                         └──────────────┘          │
+        └────────────────────────────────────────────────────────────────────┘
+```
 
-## 4. sLLM 파인튜닝 및 최적화
+3가지 그래프 변형을 동일 빌더에서 파생하여 재사용성을 확보했다:
 
-### 4.1 구현 현황
-OpenAI API 기반, PEFT/LoRA 미적용. SAC 검색 효율 최적화. 5개 프롬프트 템플릿 관리.
+| 그래프 | 경로 | 용도 |
+|--------|------|------|
+| `graph` | 전체 4단계 | 통합 답변 + 절차 안내 |
+| `graph_answer` | `retrieve_law → generate_answer → END` | 답변만 필요한 경우 |
+| `graph_procedure` | `retrieve_law → procedure_guide → END` | 절차 안내만 필요한 경우 |
 
-### 4.2 코드 분석
-- LoRA/QLoRA: 미적용 (OpenAI API 기반, 의도적 설계)
-- 메모리 효율성: ChromaDB 로컬, SAC 100-300자 검색용 텍스트, 메모리 캐싱
-- 프롬프트: 5개 템플릿 (answer 124줄 3단구조, procedure, news ReAct, calculator, precedent_summary)
-- prompt_loader.py (utils/prompt_loader.py:5-8): 외부 파일 관리
+### 2-2. GraphState 구조
 
-### 4.3 평가
-- 장점: SAC Vocabulary Mismatch 해결, 프롬프트 외부 파일 관리, temperature=0 적합
-- 한계: LoRA 코드 미비, 프롬프트 버전 관리 부재, LLM-as-a-Judge 미구현, 인젝션 방어 부재
+14개 필드로 구성된 GraphState(`backend/nodes/graph_state.py:7-21`)가 RAG 파이프라인 전반의 데이터 흐름을 제어한다.
 
-### 4.4 등급: 하(Basic)
+| 필드 | 타입 | 생성 노드 | 소비 노드 |
+|------|------|-----------|-----------|
+| `question` | str | 입력 | 전체 노드 |
+| `precedent_docs_direct` | list | retrieve_precedent | (디버깅/소스 표시) |
+| `precedent_analysis` | str | retrieve_precedent | generate_answer |
+| `precedent_context_docs` | list | retrieve_precedent | generate_answer |
+| `ref_articles_from_precedent` | list[str] | retrieve_precedent | retrieve_law |
+| `law_docs` | list | retrieve_law | _format_sources |
+| `law_analysis` | list[dict] | retrieve_law | generate_answer |
+| `law_source` | str | retrieve_law | generate_answer (출처 신뢰도) |
+| `law_confidence` | float | retrieve_law | (확장용) |
+| `final_answer` | str | generate_answer | procedure_guide, 출력 |
+| `used_precedents` | list[str] | generate_answer | procedure_guide |
+| `procedure_guide` | str | procedure_guide | 출력 |
 
-## 5. 코드 품질 및 예외 처리
+3개 그래프 변형은 `_build_base_graph()`로 공통 노드 등록부를 공유하고, 끝부분 엣지만 다르게 연결하는 방식으로 중복 코드 없이 3가지 시나리오를 처리한다.
 
-### 5.1 구현 현황
-모듈화 계층 구조, try/except 예외 처리, 법령명·조문번호 정규화.
+### 2-3. 2-Path Retrieval 전략
 
-### 5.2 코드 분석
-- 양호: generation.py(try/except->skip), law_retriever.py(None 체크), registry.py(ToolResult 반환), news_search_tool.py(HTTPError/Timeout/Exception 구분), core.py(경계값 검증)
-- 미흡: answer_service.py(llm.invoke 미처리), retrieval.py(인덱스 오류 미체크), procedure_service.py(Log만)
+법령 검색 단계에서는 판례 기반 검색과 질의 기반 검색을 병행하고, 각 경로에 서로 다른 가중치를 부여하여 재정렬하는 하이브리드 검색 방식을 적용하였다(`backend/retrievers/law_retriever.py:31-41`).
 
-### 5.3 평가
-- 장점: 계층 구조, core.py/tools.py 분리, 개별 try/except, ToolRegistry 확장성
-- 한계: 예외 처리 일관성 부족, print+logging 혼용, 타입 힌트 불완전, 테스트 전무
+| 경로 | 점수 | 근거 |
+|------|------|------|
+| 판례 참조조문 → metadata 정확 매칭 | `PRECEDENT_SCORE = 1.0` | 판례가 실제로 인용한 조문이므로 법적 정합성이 가장 높음 |
+| 사용자 질의 → Vector Search | `QUERY_SCORE = 0.6` | 판례 경로가 못 찾는 케이스를 보완하는 재현율 확보용 |
+| 임베딩 유사도 가산 | `EMBEDDING_WEIGHT = 0.3` | metadata 유사도 score 기반 동일 경로 내 우선순위 세분화 |
 
-### 5.4 등급: 중(Intermediate)
+최종적으로 `source` 필드를 다음 중 하나로 분류하여 답변 생성 단계에서 검색 결과의 출처를 추적할 수 있도록 하였다:
 
-## 6. 종합 평가
+- `hybrid` — 두 경로 모두에서 검색된 결과
+- `precedent_based` — 판례 참조조문 경로로만 검색
+- `query_based` — 질의 유사도 경로로만 검색
+- `unknown` — 출처 분류 불가
 
-| 평가 항목 | 등급 | 핵심 근거 |
-|-----------|:----:|----------|
-| Hybrid RAG 및 DB 연동 | 중 | SAC, 2-Path, CrossEncoder 고급 기법, qna_db 미연결 |
-| Multi-Agent 및 ReAct | 중 | Supervisor+Router+ToolKit 설계 우수, MCP Server 미구현 |
-| sLLM 파인튜닝 및 최적화 | 하 | OpenAI API 기반, 평가 체계/LoRA 코드 미비 |
-| 코드 품질 및 예외 처리 | 중 | 모듈화 우수, 예외 처리 일관성 부족, 테스트 부재 |
+`confidence` 값은 전체 검색 결과 중 판례 기반 검색 결과의 비율로 계산된다. 현재는 검색 품질 분석 및 디버깅 지표로 활용하며, 향후 `confidence` 기반 검색 전략 분기에 활용할 수 있도록 설계하였다.
 
-## 7. 권장 개선 사항
+### 2-4. SAC (Summary-Augmented Chunking)
 
-- RAG: qna_db 파이프라인 통합, BM25+Vector, RAGAS/TruLens 평가
-- Multi-Agent: JSON structured output, MCP Server, asyncio 병렬, 에러 복구
-- 최적화: LLM-as-a-Judge, 프롬프트 버전 관리, 인젝션 방어
-- 코드: @exception_handler, logging 통일, 타입 힌트, pytest, JSON encoder
+판례 데이터의 Semantic Gap(사용자 구어체 ↔ 법률 문어체) 문제를 해결하기 위해 각 청크에 이중 요약 구조를 적용했다.
 
-## 8. 참고 자료
+```
+┌─────────────────────────────────────────────────┐
+│              판례 Document                        │
+│                                                   │
+│  ┌─────────────────────────────────────────────┐  │
+│  │ page_content  (100-300자)                    │  │
+│  │  → Vector Search 대상, 판례 핵심 사실 요약   │  │
+│  └─────────────────────────────────────────────┘  │
+│                                                   │
+│  ┌─────────────────────────────────────────────┐  │
+│  │ metadata[llm_brief]  (LLM용 상세 요약)       │  │
+│  │  → 판례의 법리적 쟁점, 결론 포함              │  │
+│  └─────────────────────────────────────────────┘  │
+│                                                   │
+│  카테고리 기반 차등 요약: 데이터 유형별 최적 요약  │
+│  전략 적용                                        │
+└─────────────────────────────────────────────────┘
+```
 
-분석 파일(33개): backend/graph.py, graph_state.py, retrieval.py, generation.py, rag_engine.py, database.py, law_retriever.py, builders(all), config.py, router_engine.py, supervisor/graph.py, supervisor/engine.py, tools/registry.py, base.py, news_search_tool.py, calculator_engine.py, calculator/모듈, services/all, utils/all, preprocess/모듈, init_db.py, constants, main.py, frontend/app.py, qa.py, README.md
+검색은 `page_content`(짧은 요약) 대상으로 수행하고, LLM 답변 생성 시에는 `llm_brief`(상세 요약)를 컨텍스트로 제공하여 검색 효율과 답변 품질을 동시에 확보한다.
+
+### 2-5. CrossEncoder 리랭킹
+
+Vector Search 단독으로는 임베딩 유사도 상위 결과가 실제 법적 관련성과 다를 수 있기 때문에, CrossEncoder 리랭킹을 도입하여 (질문, 문서) 쌍을 직접 비교한다.
+
+리랭킹 과정:
+
+1. **Vector Search**: ChromaDB similarity_search로 k=30개 후보 추출
+2. **사건번호 중복 제거**: 동일 사건번호를 가진 판례는 하나로 통합
+3. **CrossEncoder 스코어링**: `Dongjin-kr/ko-reranker`로 각 (질문, llm_brief) 쌍의 관련도 점수 산출
+4. **Top-5 선별**: 점수 기준 상위 5개 판례를 최종 컨텍스트로 사용
+
+본 시스템은 판례 원문 전체가 아닌 사전에 생성한 SAC 기반 `llm_brief`를 대상으로 리랭킹을 수행한다. 이를 통해 판례의 핵심 쟁점 중심으로 관련도를 평가할 수 있으며, 긴 판례 원문을 비교하는 방식 대비 추론 비용을 줄이면서 검색 품질을 향상시켰다.
+
+### 2-6. 설계 평가
+
+**강점**
+
+- **SAC 이중 요약**: 검색 효율과 LLM 답변 품질을 동시에 확보하는 혁신적 설계. 검색 단계(짧은 page_content)와 생성 단계(상세 llm_brief)를 분리하여 각 단계의 요구사항에 최적화함.
+- **2-Path 하이브리드 검색**: 판례 참조조문(정밀도)과 질의 유사도(재현율)를 결합하여 법률 도메인의 특수성을 반영.
+- **CrossEncoder 리랭킹**: Bi-encoder 단독 검색보다 정확한 관련도 평가. 사건번호 중복 제거로 다양성 확보.
+- **3개 그래프 변형**: 동일 빌더에서 파생하여 시나리오별 최적 경로 제공, 코드 중복 최소화.
+
+**한계 및 트레이드오프**
+
+- **qna_db 미연결**: ChromaDB에 qna 컬렉션이 생성되어 있으나 실제 검색 파이프라인에 통합되지 않음 — 향후 질의회시 데이터 활용을 위해 파이프라인 확장 필요.
+- **테스트 코드 미구현**: RAG 파이프라인의 각 노드별 단위 테스트 부재로 회귀 검증이 어려움.
+- **BM25+Vector 혼합 미적용**: 현재는 Vector Search 단일 방식만 사용 중 — 하이브리드 검색의 재현율 향상을 위해 BM25 스파스 검색 병합 검토 가능.
+
+---
+
+## 3. Multi-Agent 시스템
+
+### 3-1. 2단계 라우팅 구조
+
+시스템은 2단계 라우팅 구조를 가진다. 1차 LawRouterEngine이 단일 의도를 빠르게 분기하고, 필요 시 SupervisorEngine이 복합 의도를 다중 에이전트로 오케스트레이션한다.
+
+```
+사용자 입력
+    │
+    ▼
+┌─────────────────────────────────────────────────┐
+│          LawRouterEngine (1차 분류)               │
+│                                                   │
+│  ┌──────────────┐  ┌──────────────┐              │
+│  │ case_based_  │  │ procedure_   │              │
+│  │ answer       │  │ guidance     │              │
+│  └──────────────┘  └──────────────┘              │
+│  ┌──────────────┐  ┌──────────────┐              │
+│  │ allowance_   │  │ latest_news  │              │
+│  │ calculator   │  │              │              │
+│  └──────────────┘  └──────────────┘              │
+│                                                   │
+│   → 단일 의도: 해당 그래프로 직행                  │
+│   → 복합 의도: SupervisorEngine으로 전달          │
+└─────────────────────────────────────────────────┘
+    │
+    ▼ (복합 질문 시)
+┌─────────────────────────────────────────────────┐
+│             SupervisorEngine                     │
+│   (Multi-Agent 오케스트레이션)                    │
+└─────────────────────────────────────────────────┘
+```
+
+RouterEngine/LawRouterEngine(`backend/router_engine.py:30-53`)은 4개 모드를 분류하며, fallback으로 `case_based_answer`를 사용한다. 24줄 길이의 SYSTEM_PROMPT가 라우팅 기준을 정의한다.
+
+### 3-2. Supervisor Graph
+
+Supervisor는 LLM이 다음에 실행할 에이전트를 결정하는 패턴으로, 복합 질문을 여러 단계로 분할하여 처리한다.
+
+```
+                    ┌─────────────────┐
+                    │   Supervisor     │ ← LLM이 다음 실행 에이전트 결정
+                    │   (LLM Router)   │
+                    └────────┬─────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        ┌───────────┐  ┌───────────┐  ┌───────────┐
+        │ rag_router│  │ calculator│  │   news    │
+        │  (법률RAG) │  │ (수당계산) │  │ (최신뉴스) │
+        └─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+              │              │              │
+              └──────────────┴──────────────┘
+                             │
+                    ┌────────▼─────────┐
+                    │   Supervisor      │ ← 추가 작업 필요 여부 재판단
+                    │  (재귀, 최대 3회)  │
+                    └────────┬─────────┘
+                             │
+                          FINISH → END
+```
+
+**SupervisorState**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `question` | str | 사용자 원본 질문 (불변) |
+| `next` | str | Supervisor가 결정한 다음 노드 |
+| `intermediate_results` | dict | 각 에이전트 결과 누적 `{"rag": ..., "calculator": ..., "news": ...}` |
+| `iteration` | int | 현재까지 실행 횟수 (`MAX_ITERATIONS=3` 제한) |
+| `rag_sources` | list | RAG 검색 출처 (프론트엔드 표시용) |
+
+**제어 흐름**(`backend/supervisor/graph.py`):
+
+- `supervisor_node`: 이전 실행 결과와 `already_done` 목록을 LLM에 제공하여 중복 실행 방지
+- `router_decision`: 조건부 엣지. `iteration >= MAX_ITERATIONS`면 무조건 `FINISH`로 강제 종료 (무한루프 방지)
+- 각 서브 에이전트는 실행 후 항상 `supervisor`로 복귀 — Supervisor가 추가 작업 필요 여부를 재판단
+
+복합 질문(예: "퇴직금 계산하고 관련 판례도 알려줘") 처리 시 `calculator → supervisor → rag_router → supervisor → FINISH` 순으로 순차 실행되며, 각 단계 결과가 `intermediate_results`에 누적되어 다음 에이전트가 참고할 수 있다.
+
+### 3-3. ReAct 패턴
+
+**Calculator Engine**
+
+LangGraph의 표준 ReAct 에이전트(`backend/calculator/graph.py`)를 사용한다. `messages` 기반 상태로 대화 히스토리를 유지하여 멀티턴 계산(예: "3년 근무 추가"로 이전 입력에 누적)을 지원한다. 4개 도구를 사용하며, `calculator_prompt.md`에 만/억 단위 계산 규칙이 정의되어 있다.
+
+**News Engine**
+
+LangGraph의 명시적 그래프가 아닌 **수동 ReAct 루프**로 구현되어 있다.
+
+```
+LLM 추론 → Action 파싱 → Tool 실행 → Observation → LLM 재추론 → ... → Final Answer
+```
+
+- `MAX_STEPS`로 무한루프 방지
+- `MAX_TOOL_RETRY` 연속 동일 쿼리 감지 시 조기 종료 (동일 검색 반복 방지)
+- evidence 불충분 시 Final Answer 대신 재검색을 강제하는 규칙을 매 스텝 주입
+- `NewsQueryRewriter`를 통해 사용자 질의를 뉴스 검색에 적합한 형태로 변환
+
+### 3-4. ToolRegistry 및 MCP 연동
+
+정식 MCP 프로토콜 서버는 미구현 상태이나, **MCP와 동일한 설계 원칙**(표준화된 Tool 명세, 동적 등록, 느슨한 결합)을 적용한 자체 Registry를 구현했다(`tools/registry.py`).
+
+```python
+class ToolRegistry:
+    def register(self, tool: BaseTool): ...
+    def run(self, name: str, **kwargs) -> ToolResult: ...
+    def list_specs(self) -> list[dict]:
+        return [t.to_mcp_spec() for t in self._tools.values()]  # MCP 스펙 호환
+```
+
+`to_mcp_spec()` 메서드를 통해 각 Tool이 MCP 표준 형식(`name`, `description`, `input_schema`)으로 자기 설명을 제공하므로, 향후 실제 MCP 서버로 전환 시 Tool 구현부 변경 없이 프로토콜 레이어만 추가하면 된다.
+
+`valid_tools()` 화이트리스트 검증을 통해 LLM이 임의의 tool명을 생성해도 실제 등록된 tool만 실행되도록 제한한다.
+
+### 3-5. 설계 평가
+
+**강점**
+
+- **Supervisor 복합 질문 처리**: 중복 방지와 반복 제한(MAX_ITERATIONS=3)을 통해 안정적인 다중 에이전트 오케스트레이션 구현.
+- **2단계 라우팅**: LawRouterEngine(1차 빠른 분기) + Supervisor(2차 복합 처리)의 이중 구조로 단순 질문과 복합 질문을 효율적으로 분리.
+- **ToolRegistry 플러그인 구조**: 싱글턴 + BaseTool 추상화로 신규 Tool 추가가 용이하며, MCP 스펙 호환성 확보.
+
+**한계**
+
+- **키워드 파싱 한계**: Supervisor의 LLM 출력 파싱이 키워드 기반으로 이루어져 있어 출력 형식 변화에 취약함. JSON structured output 도입 필요.
+- **MCP Server 미구현**: 현재는 자체 Registry로 대체 중이나, 외부 시스템과의 표준화된 통신을 위해 MCP 서버 전환이 필요함.
+- **동시성 부재**: 모든 에이전트가 순차 실행되어 복합 질문 처리 시간이 길어짐. asyncio 기반 병렬 실행 검토 가능.
+- **에러 복구 미구현**: 서브 에이전트 실패 시 Supervisor 차원의 재시도/폴백 로직이 없음.
+
+---
+
+## 4. 코드 최적화 및 품질
+
+### 4-1. LLM 파라미터 정책
+
+`temperature=0` 설정(`backend/config.py:12-15`)은 법률 도메인의 특수성을 고려한 의도적 설계 결정이다.
+
+| 파라미터 | 값 | 설계 의도 |
+|----------|-----|-----------|
+| `temperature` | 0.0 | 동일 질의에 대해 항상 동일한 답변을 생성하여 법률 답변의 재현성과 일관성 확보 |
+| `max_tokens` | (별도 설정) | 답변 길이 제어 |
+
+법률 도메인에서는 창의적인 답변보다 정확하고 일관된 답변이 중요하므로, temperature=0은 적절한 선택이다. 단, 이로 인해 답변 다양성이 제한되므로 사용자 피드백 기반 temperature 동적 조정은 향후 개선 사항으로 고려할 수 있다.
+
+### 4-2. 프롬프트 템플릿 관리
+
+5개 프롬프트 템플릿을 외부 파일로 분리하여 관리한다(`utils/prompt_loader.py:5-8`).
+
+| 템플릿 파일 | 용도 | 특징 |
+|-------------|------|------|
+| `answer_prompt.md` | 법률 답변 생성 | 124줄, 3단 구조(지침/컨텍스트/출력형식) |
+| `procedure_prompt.md` | 절차 안내 | 단계별 행정 절차 서술 |
+| `news_prompt.md` | 뉴스 ReAct | 검색 결과 기반 최신 동향 요약 |
+| `calculator_prompt.md` | 수당 계산기 | 만/억 단위 계산 규칙 포함 |
+| `precedent_summary.md` | 판례 요약 | 판례의 법리적 쟁점 추출 |
+
+`prompt_loader.py`는 `string.Template.safe_substitute`를 사용한 템플릿 치환 방식으로, 프롬프트 수정 시 코드 변경 없이 파일만 수정하면 된다.
+
+### 4-3. 예외 처리 전략
+
+**양호한 사례**
+
+| 파일 | 위치 | 처리 방식 |
+|------|------|-----------|
+| `generation.py` | try/except → skip | LLM 호출 실패 시 해당 단계를 건너뛰고 전체 파이프라인 유지 |
+| `law_retriever.py` | None 체크 | 검색 결과 부재 시 안전한 기본값 반환 |
+| `tools/registry.py` | ToolResult 반환 | 성공/실패를 구조화된 객체로 반환하여 상위에서 일괄 처리 |
+| `news_search_tool.py` | 예외 구분 처리 | HTTPError/Timeout/Exception을 구분하여 로깅 및 대응 |
+| `core.py` | 경계값 검증 | 입력 파라미터 범위 강제 (`max(1, min(display, 10))`) |
+
+**미흡한 사례**
+
+| 파일 | 문제점 | 영향 |
+|------|--------|------|
+| `answer_service.py` | `llm.invoke` 예외 미처리 | LLM 호출 실패 시 크래시 발생 가능 |
+| `retrieval.py` | 인덱스 오류 미체크 | ChromaDB 쿼리 실패 시 추적 불가 |
+| `procedure_service.py` | Log만 출력 | 오류 발생 시 복구 로직 없음 |
+
+앞으로 개선이 필요한 사항으로는 `@exception_handler` 데코레이터 도입, `print`와 `logging`의 혼용 통일, 타입 힌트 완전 적용, `pytest` 기반 단위 테스트 도입 등이 있다.
+
+### 4-4. 설계 평가
+
+**강점**
+
+- **계층적 모듈 구조**: `backend/` → `nodes/`, `retrievers/`, `services/`, `tools/` 등 기능별 명확한 계층 분리로 유지보수성 확보.
+- **프롬프트 외부 파일 관리**: 코드 변경 없이 프롬프트 수정 가능. `prompt_loader.py`를 통한 일관된 로드 방식.
+- **temperature=0 정책**: 법률 도메인에 적합한 일관성 우선 설계.
+
+**한계**
+
+- **예외 처리 일관성 부족**: 파일별로 예외 처리 수준이 상이함. 통일된 예외 처리 프레임워크 도입 필요.
+- **프롬프트 버전 관리 부재**: 템플릿 변경 이력 추적 불가. 프롬프트 버전 관리 체계 도입 필요.
+- **LLM-as-a-Judge 미구현**: 생성된 답변의 품질을 자동 평가하는 메커니즘 부재.
+- **인젝션 방어 부재**: 사용자 입력에 대한 프롬프트 인젝션 방어 로직 미구현.
+
+---
+
+## 5. 종합 평가
+
+### 5-1. 평가 항목 요약
+
+| 평가 영역 | 핵심 근거 |
+|-----------|-----------|
+| **Hybrid RAG 및 DB 연동** | SAC 이중 요약, 2-Path 하이브리드 검색, CrossEncoder 리랭킹 등 고급 RAG 기법 적용. 3개 그래프 변형으로 시나리오별 최적화. qna_db 파이프라인 미연결은 보완 필요. |
+| **Multi-Agent 및 ReAct** | Supervisor+Router 2단계 라우팅 구조로 단일/복합 질문 모두 처리. ToolRegistry의 플러그인 아키텍처 우수. MCP Server 미구현, 동시성 부재는 향후 과제. |
+| **코드 최적화 및 품질** | 계층적 모듈 구조 우수, 프롬프트 외부 파일 관리 도입. 예외 처리 일관성 부족, 평가 체계 및 인젝션 방어 미비. |
+| **종합** | Hybrid RAG와 Multi-Agent 아키텍처의 설계 수준이 높고 실무 적용 가능한 수준. SAC, 2-Path Retrieval, Supervisor 패턴 등 고급 기법을 적극 도입. 코드 품질 영역(예외 처리 일관성, 테스트, 보안)은 지속적 개선 필요. |
+
+### 5-2. 회고: 7단계 진화 과정
+
+이 프로젝트는 다음 7단계의 점진적 진화 과정을 거쳤다:
+
+1. **1단계 — 기본 검색**: 단순 Vector Search 기반 법령 검색
+2. **2단계 — RAG 파이프라인 구축**: LangGraph 기반 4개 노드 순차 실행
+3. **3단계 — 2-Path Retrieval 도입**: 판례 참조조문 + 질의 유사도 하이브리드
+4. **4단계 — SAC 적용**: Summary-Augmented Chunking으로 검색 효율 향상
+5. **5단계 — CrossEncoder 리랭킹**: Vector Search 후보 재정렬로 정확도 개선
+6. **6단계 — Multi-Agent 시스템**: Supervisor + Router + ToolRegistry 아키텍처
+7. **7단계 — MCP 호환 설계**: ToolRegistry의 MCP 스펙 호환성 확보로 확장 준비
+
+각 단계는 이전 단계의 한계를 분석하고 보완하는 방식으로 발전했다. 특히 4~5단계(SAC + 리랭킹)는 검색 정확도 측면에서 가장 큰 성능 향상을 가져온 핵심 설계 결정이다.
+
+---
+
+## 6. 권장 개선 사항
+
+| 우선순위 | 영역 | 개선 항목 | 기대 효과 |
+|:--------:|------|-----------|-----------|
+| **P0** | RAG | qna_db 파이프라인 통합 | 질의회시 데이터 활용으로 답변 범위 확장 |
+| **P0** | Multi-Agent | JSON structured output 도입 | LLM 출력 파싱 안정성 향상, 키워드 의존성 제거 |
+| **P1** | RAG | BM25+Vector 하이브리드 검색 | 재현율 개선, 검색 품질 향상 |
+| **P1** | 코드 품질 | `@exception_handler` 데코레이터 도입 | 예외 처리 일관성 확보 |
+| **P1** | 코드 품질 | logging 통일 (print → logging) | 운영 모니터링 체계 구축 |
+| **P1** | Multi-Agent | MCP Server 구현 | 외부 시스템과 표준화된 통신 |
+| **P2** | 평가 | RAGAS/TruLens 기반 RAG 평가 | 객관적 품질 측정 체계 도입 |
+| **P2** | Multi-Agent | asyncio 기반 병렬 실행 | 복합 질문 처리 속도 개선 |
+| **P2** | 코드 품질 | pytest 단위 테스트 도입 | 회귀 검증 체계 구축 |
+| **P2** | 최적화 | LLM-as-a-Judge 자동 평가 | 답변 품질 모니터링 자동화 |
+| **P2** | 최적화 | 프롬프트 버전 관리 | 템플릿 변경 이력 추적 |
+| **P2** | 보안 | 프롬프트 인젝션 방어 | 악의적 입력 차단 |
+
+---
+
+## 7. 참고 자료
+
+분석 파일(33개):
+
+```
+law_project/
+├── backend/
+│   ├── graph.py                          # RAG 그래프 정의 (4개 노드)
+│   ├── graph_state.py                    # GraphState 14개 필드
+│   ├── retrieval.py                      # 검색 로직
+│   ├── generation.py                     # LLM 답변 생성
+│   ├── rag_engine.py                     # RAG 엔진 통합
+│   ├── database.py                       # DB 연결
+│   ├── config.py                         # 설정 (temperature=0)
+│   ├── router_engine.py                  # LawRouterEngine (4개 모드)
+│   ├── nodes/                            # 그래프 노드 모듈
+│   ├── retrievers/
+│   │   └── law_retriever.py              # 2-Path Retrieval
+│   ├── services/                         # 서비스 레이어
+│   ├── supervisor/
+│   │   ├── graph.py                      # Supervisor 그래프
+│   │   └── engine.py                     # Supervisor 엔진
+│   ├── calculator/
+│   │   ├── graph.py                      # ReAct 에이전트
+│   │   ├── calculator_engine.py          # 계산 엔진
+│   │   └── 모듈                          # 계산 도구 모듈
+│   └── tools/
+│       ├── registry.py                   # ToolRegistry (싱글턴)
+│       ├── base.py                       # BaseTool 추상화
+│       └── news_search_tool.py           # 뉴스 검색 도구
+├── utils/
+│   ├── prompt_loader.py                  # 프롬프트 로드 (5-8행)
+│   └── preprocess/                       # 전처리 모듈
+├── frontend/
+│   ├── app.py                            # Streamlit UI
+│   └── qa.py                             # Q&A 인터페이스
+├── init_db.py                            # DB 초기화
+├── main.py                               # 진입점
+├── constants                             # 상수 정의
+└── README.md                             # 프로젝트 문서
+```
