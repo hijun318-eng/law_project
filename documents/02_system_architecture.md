@@ -348,16 +348,16 @@ def stream_answer(self, question: str):
 
 BM25 키워드 검색과 Vector 의미 검색을 결합한 하이브리드 방식을 실험했다. 법령 특유의 조문 번호나 고유 법률 용어 검색에서는 키워드 매칭이 강점을 보였으나, Vocabulary Mismatch 문제의 근본적 해결에는 이르지 못했다.
 
-추가로 Cross-Encoder 기반 Rerank와 LLM 기반 Query Rewrite(사용자 질의를 법률 용어로 재작성)도 시도했으나, 결과는 오히려 성능이 저하되었다:
+이 단계에서 법령(Law) 검색 결과에 Rerank를 적용하는 시도와 LLM 기반 Query Rewrite(사용자 질의를 법률 용어로 재작성)도 함께 실험했으나, 결과는 오히려 성능이 저하되었다:
 
-| 시도 | 결과 |
-|------|:----:|
-| Cross-Encoder 기반 Rerank | 성능 저하 |
-| LLM Rerank (Reranker를 LLM으로 대체) | 성능 저하 |
-| Rerank + 실패 시 Query Rewrite → 재검색 → Rerank | 성능 저하 |
-| Query Rewrite (질의를 법률 용어로 재작성 후 검색) | 성능 저하 |
+| 시도 | 대상 | 결과 |
+|------|:----:|:----:|
+| Cross-Encoder 기반 Rerank | 법령 검색 결과 | 성능 저하 |
+| LLM Rerank (Reranker를 LLM으로 대체) | 법령 검색 결과 | 성능 저하 |
+| Rerank + 실패 시 Query Rewrite → 재검색 → Rerank | 법령 검색 결과 | 성능 저하 |
+| Query Rewrite (질의를 법률 용어로 재작성 후 검색) | 법령 검색 결과 | 성능 저하 |
 
-Rerank와 Query Rewrite 모두 추가 LLM 호출이 오류 전파 지점을 늘리는 방향으로 작용했다. 결정론적 구조가 법률 도메인에서 더 안정적이라는 판단으로, 이들 기법은 최종 구조에서 제외하고 Vector Search + Cross-Encoder 조합만 유지하기로 결정했다.
+당시의 Rerank 시도는 모두 추가 LLM 호출이 오류 전파 지점을 늘리는 방향으로 작용했다. 이 경험을 바탕으로 법령 검색 단계는 결정론적 구조(메타데이터 정확 매칭 + Vector Search 가중치 결합)로 확정했다. 한편, 이후 SAC 구조 도입 후 판례(Precedent) 검색 결과에 Cross-Encoder 리랭킹을 적용한 것은 별도의 단계에서 성공하여 현재 시스템(Section 1-2 [2])에 포함되었다.
 
 ### 5-4. 4기: 질의회시 경로 실험 (중간 매개체 활용)
 
