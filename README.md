@@ -388,9 +388,17 @@ streamlit run main.py
 
 ---
 
-## Streamlit 구현
+## 📸 주요 기능 화면
 
-
+| 기능 | 화면 |
+|------|------|
+| **🏠 홈 화면 및 질의 예시** | <img src="https://github.com/user-attachments/assets/5010500a-2700-4427-b847-101886177e49" width="400"> <br><br> **사용자는 자연어로 노동 관련 질문을 입력할 수 있습니다.** <br> **질의 예시** <br> • 장애인 아마추어 운동선수의 근로자성 판단 <br> • 4인 이하 사업장의 연차유급휴가 적용 여부 <br> • 승진시험 시간의 근로시간 해당 여부 <br> • 징계 사실 사내 공지의 직장 내 괴롭힘 해당 여부 등 다양한 노동법 질의를 수행할 수 있습니다. |
+| **⚖️ 법률 질의 응답 결과** | <img src="https://github.com/user-attachments/assets/a45258ba-ab88-495c-afbc-5ad39a31a059" width="500"> <br><br> **판례, 법령, 질의회시를 기반으로 근거 있는 답변을 제공합니다.** <br> 검색된 법적 근거와 함께 사용자가 이해하기 쉬운 형태로 결과를 요약하여 제공합니다. |
+| **📋 노동권리 진단 및 대응 절차 안내** | <img src="https://github.com/user-attachments/assets/24181b4e-2a38-4a6a-acf9-e595351ddf8d" width="250"> <img src="https://github.com/user-attachments/assets/999342e1-b216-4ee5-b4f3-5729c07a6701" width="250"> <br><br> **노동 문제 발생 시 필요한 대응 절차를 단계별로 안내합니다.** <br> AI가 질의 내용을 분석하여 답변뿐 아니라 신고, 구제 신청, 증거 확보 등 실질적인 대응 절차를 함께 제공합니다. |
+| **🧮 퇴직금 계산기** | <img src="https://github.com/user-attachments/assets/a9511dc7-a169-4795-a6cc-8b6be540fe55" width="400"> <br><br> **퇴직금 예상 금액을 간편하게 계산할 수 있습니다.** <br> 사용자가 근무 기간과 급여 정보를 입력하면 예상 퇴직금을 자동으로 산출합니다. |
+| **📄 근로계약서 업로드 및 분석** | <img src="https://github.com/user-attachments/assets/a409c6df-0f26-4251-b872-004d4f66d7de" width="400"> <br><br> **근로계약서 이미지를 업로드하여 AI 분석을 수행할 수 있습니다.** <br> OCR 기반으로 계약 내용을 추출하고 주요 조항을 분석합니다. |
+| **🚨 근로계약서 위험 요소 진단** | <img src="https://github.com/user-attachments/assets/aa4a8bae-fa35-4ce5-81f8-6c64e344490f" width="500"> <br><br> **근로계약서 내 위험 요소와 주의사항을 자동 탐지합니다.** <br> 누락된 필수 조항, 불리한 계약 조건, 법적 위험 요소 등을 분석하여 사용자에게 안내합니다. |
+| **📰 최신 노동 뉴스 AI 분석** | <img src="https://github.com/user-attachments/assets/cb24b20d-3eaa-4bf5-bc86-b7def5c3b08a" width="400"> <br><br> **최신 노동·고용 이슈를 자연어로 검색할 수 있습니다.** <br> 관련 기사를 수집하고 AI가 핵심 내용을 요약하여 최근 동향과 주요 쟁점을 제공합니다. |
 
 
 
