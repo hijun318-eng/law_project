@@ -387,7 +387,7 @@ OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로
 
 - **예외 처리 일관성 부족**: 파일별로 예외 처리 수준이 상이함. 통일된 예외 처리 프레임워크 도입 필요.
 - **프롬프트 버전 관리 부재**: 템플릿 변경 이력 추적 불가. 프롬프트 버전 관리 체계 도입 필요.
-- **LLM-as-a-Judge 미구현**: 생성된 답변의 품질을 자동 평가하는 메커니즘 부재.
+- **LLM-as-a-Judge(RAGAS) 평가 완료**: RAGAS 프레임워크 기반 자동 평가 시스템 구축 완료(04_test_plan_and_results.md 참조). Faithfulness 높은 수준, Context Precision/Recall은 질문 유형별 편차 존재.
 - **인젝션 방어 부재**: 사용자 입력에 대한 프롬프트 인젝션 방어 로직 미구현.
 
 ---
@@ -400,8 +400,10 @@ OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로
 |-----------|-----------|
 | **Hybrid RAG 및 DB 연동** | SAC 이중 요약, 2-Path 하이브리드 검색, CrossEncoder 리랭킹 등 고급 RAG 기법 적용. 3개 그래프 변형으로 시나리오별 최적화. |
 | **Multi-Agent 및 ReAct** | Supervisor+Router 2단계 라우팅 구조로 단일/복합 질문 모두 처리. ToolRegistry의 플러그인 아키텍처 우수. MCP Server 미구현, 동시성 부재는 향후 과제. |
-| **코드 최적화 및 품질** | 계층적 모듈 구조 우수, 프롬프트 외부 파일 관리 도입. 예외 처리 일관성 부족, 평가 체계 및 인젝션 방어 미비. |
+| **코드 최적화 및 품질** | 계층적 모듈 구조 우수, 프롬프트 외부 파일 관리 도입. 예외 처리 일관성 부족, 인젝션 방어 미비. |
 | **종합** | Hybrid RAG와 Multi-Agent 아키텍처의 설계 수준이 높고 실무 적용 가능한 수준. SAC, 2-Path Retrieval, Supervisor 패턴 등 고급 기법을 적극 도입. 코드 품질 영역(예외 처리 일관성, 테스트, 보안)은 지속적 개선 필요. |
+
+> 시스템 성능 평가 결과(RAGAS 기반)는 별도 문서 `04_test_plan_and_results.md`에 상세 기술되어 있음.
 
 ### 6-2. 회고: 설계 진화 과정
 
@@ -517,7 +519,7 @@ ToolRegistry는 싱글턴 + BaseTool 추상화 패턴으로 설계되어 신규 
 | **P1** | 코드 품질 | `@exception_handler` 데코레이터 도입 | 예외 처리 일관성 확보 |
 | **P1** | 코드 품질 | logging 통일 (print → logging) | 운영 모니터링 체계 구축 |
 | **P1** | Multi-Agent | MCP Server 구현 | 외부 시스템과 표준화된 통신 |
-| **P2** | 평가 | RAGAS/TruLens 기반 RAG 평가 | 객관적 품질 측정 체계 도입 |
+| **P1** | 평가 | RAGAS 기반 RAG 평가 완료(04_test_plan_and_results.md) | Faithfulness 높음, Context Recall 편차 확인 |
 | **P2** | Multi-Agent | asyncio 기반 병렬 실행 | 복합 질문 처리 속도 개선 |
 | **P2** | 코드 품질 | pytest 단위 테스트 도입 | 회귀 검증 체계 구축 |
 | **P2** | 최적화 | LLM-as-a-Judge 자동 평가 | 답변 품질 모니터링 자동화 |
