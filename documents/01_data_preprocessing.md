@@ -30,7 +30,7 @@
 
 | 구분 | 원본 파일 | 처리 결과 | ChromaDB 크기 |
 |------|----------|-----------|:------------:|
-| 법령 | 24 PDF (8법률×3유형: 법률/시행령/시행규칙) | **1,540개 조문** (article 단위) | ~23.6 MB |
+| 법령 | 24 PDF (8법률×3유형: 법률/시행령/시행규칙) | **1,540개 조문** (article 단위) | ~32.5 MB |
 | 판례 | 45 Markdown | **45건 SAC 요약** | ~1.0 MB |
 | 질의회시 | 1 PDF (591쪽) | **397건 Q&A** (미사용) | ~7.4 MB |
 
@@ -331,10 +331,10 @@ ChromaDB의 `similarity_search`로 1차 후보를 추출한 후, Cross-Encoder �
 
 | 단계 | 중복 제거 기준 | 코드 위치 |
 |------|---------------|-----------|
-| 판례 검색 결과 | 사건번호(case_no) 기준 `seen` 집합 | `nodes/retrieval.py:23-29` |
-| SAC 캐시 로딩 | 사건번호 기준 `seen_cases` 집합 | `builders/precedent_builder.py:52-55` |
-| 법령 검색 결과 | `(law_name, article_no)` 기준 `seen` 집합 | `retrievers/law_retriever.py:62-64` |
-| 법률 PDF 파싱 | 동일 페이지 번호 재파싱 방지 | `preprocess/preprocess_law.py` |
+| 판례 검색 결과 | 사건번호(case_no) 기준 `seen` 집합 | `backend/nodes/retrieval.py:23-29` |
+| SAC 캐시 로딩 | 사건번호 기준 `seen_cases` 집합 | `backend/builders/precedent_builder.py:52-55` |
+| 법령 검색 결과 | `(law_name, article_no)` 기준 `seen` 집합 | `backend/retrievers/law_retriever.py:62-64` |
+| 법률 PDF 파싱 | 동일 페이지 번호 재파싱 방지 | `backend/preprocess/preprocess_law.py` |
 
 ### 7-2. 결측치(Missing Value) 처리
 

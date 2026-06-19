@@ -27,7 +27,7 @@
 |--------|------|------|-------------|
 | 법령 데이터 | 국가법령정보센터 | 텍스트/JSON | 조문 단위 청킹, 메타데이터 인덱싱 |
 | 판례 데이터 | 대법원 종합법률정보 | 텍스트 | SAC 요약 (page_content + llm_brief), 카테고리 기반 차등 요약 |
-| 질의회시 데이터 | 고용노동부 | 텍스트 | 청킹 후 ChromaDB 저장 |
+| 질의회시 데이터 | 고용노동부 | Excel → JSON | 청킹 후 ChromaDB 저장 |
 
 ---
 
@@ -87,7 +87,7 @@
 
 ### 2-3. 2-Path Retrieval 전략
 
-법령 검색 단계에서는 판례 기반 검색과 질의 기반 검색을 병행하고, 각 경로에 서로 다른 가중치를 부여하여 재정렬하는 하이브리드 검색 방식을 적용하였다(`backend/retrievers/law_retriever.py:31-41`).
+법령 검색 단계에서는 판례 기반 검색과 질의 기반 검색을 병행하고, 각 경로에 서로 다른 가중치를 부여하여 재정렬하는 하이브리드 검색 방식을 적용하였다(`backend/retrievers/law_retriever.py:15-19`).
 
 | 경로 | 점수 | 근거 |
 |------|------|------|
@@ -359,19 +359,19 @@ OCR 텍스트에서 8개 필수 계약 항목(임금, 근무장소, 소정근로
 
 | 파일 | 위치 | 처리 방식 |
 |------|------|-----------|
-| `generation.py` | try/except → skip | LLM 호출 실패 시 해당 단계를 건너뛰고 전체 파이프라인 유지 |
-| `law_retriever.py` | None 체크 | 검색 결과 부재 시 안전한 기본값 반환 |
-| `tools/registry.py` | ToolResult 반환 | 성공/실패를 구조화된 객체로 반환하여 상위에서 일괄 처리 |
-| `news_search_tool.py` | 예외 구분 처리 | HTTPError/Timeout/Exception을 구분하여 로깅 및 대응 |
-| `core.py` | 경계값 검증 | 입력 파라미터 범위 강제 (`max(1, min(display, 10))`) |
+| `backend/nodes/generation.py` | try/except → skip | LLM 호출 실패 시 해당 단계를 건너뛰고 전체 파이프라인 유지 |
+| `backend/retrievers/law_retriever.py` | None 체크 | 검색 결과 부재 시 안전한 기본값 반환 |
+| `backend/tools/registry.py` | ToolResult 반환 | 성공/실패를 구조화된 객체로 반환하여 상위에서 일괄 처리 |
+| `backend/tools/news_search_tool.py` | 예외 구분 처리 | HTTPError/Timeout/Exception을 구분하여 로깅 및 대응 |
+| `backend/calculator/core.py` | 경계값 검증 | 입력 파라미터 범위 강제 (`max(1, min(display, 10))`) |
 
 **미흡한 사례**
 
 | 파일 | 문제점 | 영향 |
 |------|--------|------|
-| `answer_service.py` | `llm.invoke` 예외 미처리 | LLM 호출 실패 시 크래시 발생 가능 |
-| `retrieval.py` | 인덱스 오류 미체크 | ChromaDB 쿼리 실패 시 추적 불가 |
-| `procedure_service.py` | Log만 출력 | 오류 발생 시 복구 로직 없음 |
+| `backend/services/answer_service.py` | `llm.invoke` 예외 미처리 | LLM 호출 실패 시 크래시 발생 가능 |
+| `backend/nodes/retrieval.py` | 인덱스 오류 미체크 | ChromaDB 쿼리 실패 시 추적 불가 |
+| `backend/services/procedure_service.py` | Log만 출력 | 오류 발생 시 복구 로직 없음 |
 
 앞으로 개선이 필요한 사항으로는 `@exception_handler` 데코레이터 도입, `print`와 `logging`의 혼용 통일, 타입 힌트 완전 적용, `pytest` 기반 단위 테스트 도입 등이 있다.
 
@@ -500,7 +500,7 @@ ToolRegistry는 싱글턴 + BaseTool 추상화 패턴으로 설계되어 신규 
 | **2** | LangGraph 4개 노드 RAG 파이프라인 | LLM 의존성의 연쇄 오류 위험 → **LLM 최소화 원칙** |
 | **3** | 판례 참조조문 + 질의 유사도 2-Path Retrieval | Rerank/Query Rewrite 실패 → **결정론적 검색 확정** |
 | **4** | SAC(Summary-Augmented Chunking) 적용 | **검색/생성 역할 분리**로 획기적 성능 향상 |
-| **5** | CrossEncoder 리랭킹 + 카테고리 기반 SAC | Bi-encoder 한계 보완, 맥락별 최적 요약 |
+| **5** | CrossEncoder 리랭킹 + 카테고리 기반 SAC + Temperature=0 고정 | Bi-encoder 한계 보완, 맥락별 최적 요약, 법률 답변 일관성 |
 | **6** | Supervisor + Router + ToolRegistry Multi-Agent | 복합 질문 처리, 플러그인형 확장 구조 |
 | **7** | MCP 호환 ToolRegistry 설계 | 표준 프로토콜 전환 대비 확장성 확보 |
 
@@ -534,9 +534,9 @@ ToolRegistry는 싱글턴 + BaseTool 추상화 패턴으로 설계되어 신규 
 law_project/
 ├── backend/
 │   ├── graph.py                          # RAG 그래프 정의 (4개 노드)
-│   ├── graph_state.py                    # GraphState 14개 필드
-│   ├── retrieval.py                      # 검색 로직
-│   ├── generation.py                     # LLM 답변 생성
+│   ├── nodes/graph_state.py              # GraphState 14개 필드
+│   ├── nodes/retrieval.py                # 검색 로직
+│   ├── nodes/generation.py               # LLM 답변 생성
 │   ├── rag_engine.py                     # RAG 엔진 통합
 │   ├── database.py                       # DB 연결
 │   ├── config.py                         # 설정 (temperature=0)
@@ -550,20 +550,19 @@ law_project/
 │   │   └── engine.py                     # Supervisor 엔진
 │   ├── calculator/
 │   │   ├── graph.py                      # ReAct 에이전트
-│   │   ├── calculator_engine.py          # 계산 엔진
-│   │   └── 모듈                          # 계산 도구 모듈
+│   │   ├── tools.py                      # 계산 도구 모듈
 │   └── tools/
 │       ├── registry.py                   # ToolRegistry (싱글턴)
 │       ├── base.py                       # BaseTool 추상화
 │       └── news_search_tool.py           # 뉴스 검색 도구
-├── utils/
-│   ├── prompt_loader.py                  # 프롬프트 로드 (5-8행)
-│   └── preprocess/                       # 전처리 모듈
+├── backend/utils/
+│   ├── prompt_loader.py
+├── backend/preprocess/
 ├── frontend/
 │   ├── app.py                            # Streamlit UI
-│   └── qa.py                             # Q&A 인터페이스
-├── init_db.py                            # DB 초기화
+│   └── pages/qa.py                       # Q&A 인터페이스
+├── backend/init_db.py                    # DB 초기화
 ├── main.py                               # 진입점
-├── constants                             # 상수 정의
+├── backend/constants/
 └── README.md                             # 프로젝트 문서
 ```
