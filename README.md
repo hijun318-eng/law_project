@@ -297,7 +297,7 @@ streamlit run main.py
 
 ### 외부 API 연동
 
-| 연동 대상 |用途 | 설정 파일 |
+| 연동 대상 |용도 | 설정 파일 |
 |----------|-----|----------|
 | OpenAI GPT (`gpt-5.4-nano`) | LLM 답변 생성, Router/Supervisor 판단 | `backend/config.py` |
 | OpenAI Embedding (`text-embedding-3-small`) | 텍스트 임베딩 및 유사도 검색 | `backend/config.py` |
