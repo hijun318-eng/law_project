@@ -8,6 +8,7 @@
 
 ## 팀 구성 및 역할
 
+|||||
 |:---:|:---:|:---:|:---:|
 | **정영석** | **최원빈** | **성주연** | **박준희** |
 | <img width="70" height="70" src="https://github.com/user-attachments/assets/135f7951-b0c4-45d7-8e09-c1f75621c212" /> | <img width="70" height="70" src="https://github.com/user-attachments/assets/acc2e299-5824-479f-b7c4-9e3957eef3a5" /> | <img width="70" height="70" src="https://github.com/user-attachments/assets/57f1a91b-ee2b-4774-9410-decd024c737a" /> | <img width="70" height="70" src="https://github.com/user-attachments/assets/93956def-7a9d-46b2-8bfe-be9ab8190a1a" /> |
